@@ -59,7 +59,7 @@ func (k8s *Client) GetNamespacedResourceHandle(resource schema.GroupVersionResou
 }
 
 // GetObject returns a specific kubernetes object
-func (k8s *Client) GetObject(resource schema.GroupVersionResource, name, namespace string) (NamespacedObject, error) {
+func (k8s *Client) GetObject(resource schema.GroupVersionResource, name, namespace string) (NamedObject, error) {
 	resourceHandle := k8s.GetNamespacedResourceHandle(resource, namespace)
 	rawObject, err := resourceHandle.Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {

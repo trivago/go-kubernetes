@@ -27,9 +27,9 @@ type ParsedAdmissionRequest struct {
 	gvr schema.GroupVersionResource
 
 	incomingRaw *runtime.RawExtension
-	incomingObj NamespacedObject
+	incomingObj NamedObject
 	existingRaw *runtime.RawExtension
-	existingObj NamespacedObject
+	existingObj NamedObject
 }
 
 // ParseRequest converts an kubernetes AdmissionRequest into a parsed request.
@@ -45,7 +45,7 @@ func ParseRequest(req *admission.AdmissionRequest) ParsedAdmissionRequest {
 
 // NewParsedAdmissionRequest creates a new ParsedAdmissionRequest from a given
 // resources. This can be used to simulate AdmissionRequests.
-func NewParsedAdmissionRequest(gvr schema.GroupVersionResource, name, namespace string, new, old NamespacedObject) ParsedAdmissionRequest {
+func NewParsedAdmissionRequest(gvr schema.GroupVersionResource, name, namespace string, new, old NamedObject) ParsedAdmissionRequest {
 	return ParsedAdmissionRequest{
 		name:        name,
 		namespace:   namespace,
@@ -82,7 +82,7 @@ func (p *ParsedAdmissionRequest) GetIncomingJSON() []byte {
 
 // GetIncomingObject returns the object to be placed on the cluster.
 // This object is only available on Create and Update requests.
-func (p *ParsedAdmissionRequest) GetIncomingObject() (NamespacedObject, error) {
+func (p *ParsedAdmissionRequest) GetIncomingObject() (NamedObject, error) {
 	if len(p.incomingObj) == 0 {
 		var err error
 		p.incomingObj, err = NamespacedObjectFromRaw(p.incomingRaw)
@@ -96,7 +96,7 @@ func (p *ParsedAdmissionRequest) GetIncomingObject() (NamespacedObject, error) {
 
 // GetExistingObject returns the object existing on the cluster.
 // This object is only available on Delete and Update requests.
-func (p *ParsedAdmissionRequest) GetExistingObject() (NamespacedObject, error) {
+func (p *ParsedAdmissionRequest) GetExistingObject() (NamedObject, error) {
 	if len(p.existingObj) == 0 {
 		var err error
 		p.existingObj, err = NamespacedObjectFromRaw(p.existingRaw)

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	testNamespacedObjectJSON = `{
+	configMapJSON = `{
     "apiVersion": "v1",
     "kind": "ConfigMap",
     "metadata": {
@@ -40,7 +40,7 @@ const (
     ]
   }`
 
-	testPodJSON = `{
+	podJSON = `{
     "apiVersion": "v1",
     "kind": "Pod",
     "metadata": {
@@ -81,7 +81,7 @@ const (
 
 func TestNamespacedObjectFromRaw(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -92,7 +92,7 @@ func TestNamespacedObjectFromRaw(t *testing.T) {
 
 func TestNamespacedObjectRename(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -109,7 +109,7 @@ func TestNamespacedObjectRename(t *testing.T) {
 
 func TestAnnotations(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -148,7 +148,7 @@ func TestAnnotations(t *testing.T) {
 
 func TestLabels(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -176,7 +176,7 @@ func TestLabels(t *testing.T) {
 
 func TestRemoveManagedFields(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -189,7 +189,7 @@ func TestRemoveManagedFields(t *testing.T) {
 
 func TestSet(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -238,7 +238,7 @@ func TestSet(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -265,7 +265,7 @@ func TestGet(t *testing.T) {
 
 func TestFind(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -325,7 +325,7 @@ func TestSplitPathKey(t *testing.T) {
 
 func TestComplexHash(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -345,7 +345,7 @@ func TestComplexHash(t *testing.T) {
 }
 
 func TestHashChanges(t *testing.T) {
-	obj := NamespacedObject(make(map[string]interface{}))
+	obj := NamedObject(make(map[string]interface{}))
 
 	hash1, err := obj.Hash()
 	assert.NoError(t, err)
@@ -379,7 +379,7 @@ func TestHashChanges(t *testing.T) {
 
 func TestPatchFixPatchPath(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testNamespacedObjectJSON),
+		Raw: []byte(configMapJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -473,7 +473,7 @@ func TestPatchFixPatchPath(t *testing.T) {
 
 func TestPodFixPatchPath(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testPodJSON),
+		Raw: []byte(podJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
@@ -507,7 +507,7 @@ func TestPodFixPatchPath(t *testing.T) {
 
 func TestPodCases(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(testPodJSON),
+		Raw: []byte(podJSON),
 	}
 
 	obj, err := NamespacedObjectFromRaw(&json)
