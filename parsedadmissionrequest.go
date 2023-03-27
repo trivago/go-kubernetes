@@ -6,20 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type parseResult int
-type dataField int
-
-const (
-	parsedOk        = parseResult(iota)
-	parsedWithError = parseResult(iota)
-	parsedAsIgnore  = parseResult(iota)
-)
-
-const (
-	dataFieldNew = dataField(iota)
-	dataFieldOld = dataField(iota)
-)
-
 type ParsedAdmissionRequest struct {
 	name      string
 	namespace string
