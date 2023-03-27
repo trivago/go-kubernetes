@@ -66,7 +66,7 @@ func (k8s *Client) GetObject(resource schema.GroupVersionResource, name, namespa
 		return nil, err
 	}
 
-	return NamespacedObjectFromUnstructured(*rawObject)
+	return NamedObjectFromUnstructured(*rawObject)
 }
 
 // ListAllObjects returns a list of objects for a given type

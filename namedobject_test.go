@@ -79,23 +79,23 @@ const (
   }`
 )
 
-func TestNamespacedObjectFromRaw(t *testing.T) {
+func TestNamedObjectFromRaw(t *testing.T) {
 	json := runtime.RawExtension{
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 	assert.Equal(t, "test", obj.GetName())
 	assert.Equal(t, "default", obj.GetNamespace())
 }
 
-func TestNamespacedObjectRename(t *testing.T) {
+func TestNamedObjectRename(t *testing.T) {
 	json := runtime.RawExtension{
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 	assert.Equal(t, "test", obj.GetName())
 	assert.Equal(t, "default", obj.GetNamespace())
@@ -112,7 +112,7 @@ func TestAnnotations(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 	assert.True(t, obj.HasAnnotations())
 
@@ -151,7 +151,7 @@ func TestLabels(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 	assert.True(t, obj.HasLabels())
 
@@ -179,7 +179,7 @@ func TestRemoveManagedFields(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 	obj.RemoveManagedFields()
 
@@ -192,7 +192,7 @@ func TestSet(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 	obj.RemoveManagedFields()
 
@@ -241,7 +241,7 @@ func TestGet(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
 	value := obj.Get([]string{"array[]"}, "search")
@@ -268,7 +268,7 @@ func TestFind(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
 	// Test "any" search
@@ -328,7 +328,7 @@ func TestComplexHash(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
 	hash, err := obj.Hash()
@@ -339,7 +339,7 @@ func TestComplexHash(t *testing.T) {
 	assert.NoError(t, err)
 
 	// The following asserts that hashing stays stable between runs.
-	// If the testNamespacedObjectJSON object is changed, a new hash will be
+	// If the testNamedObjectJSON object is changed, a new hash will be
 	// generated and this test fails.
 	assert.Equal(t, "UhcMof5X3kM=", hashStr)
 }
@@ -382,7 +382,7 @@ func TestPatchFixPatchPath(t *testing.T) {
 		Raw: []byte(configMapJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
 	var (
@@ -476,7 +476,7 @@ func TestPodFixPatchPath(t *testing.T) {
 		Raw: []byte(podJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
 	var (
@@ -510,7 +510,7 @@ func TestPodCases(t *testing.T) {
 		Raw: []byte(podJSON),
 	}
 
-	obj, err := NamespacedObjectFromRaw(&json)
+	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
 	// Check error case

@@ -34,7 +34,7 @@ const (
 )
 
 func TestFieldCleaner(t *testing.T) {
-	obj := NamespacedObject(make(map[string]interface{}))
+	obj := NamedObject(make(map[string]interface{}))
 	err := jsoniter.UnmarshalFromString(testFieldCleanerJSON, &obj)
 	assert.NoError(t, err)
 

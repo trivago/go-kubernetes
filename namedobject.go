@@ -33,10 +33,10 @@ var (
 	pathOwnerReference = []string{"metadata", "ownerReferences"}
 )
 
-// NamespacedObjectFromUnstructured converts a raw runtime object intor a
+// NamedObjectFromUnstructured converts a raw runtime object intor a
 // namespaced object. If the object does not have name or namespace set an
 // error will be returned.
-func NamespacedObjectFromRaw(data *runtime.RawExtension) (NamedObject, error) {
+func NamedObjectFromRaw(data *runtime.RawExtension) (NamedObject, error) {
 	if data.Raw == nil {
 		if data.Object == nil {
 			return NamedObject{}, fmt.Errorf("no data found in raw object")
@@ -56,13 +56,13 @@ func NamespacedObjectFromRaw(data *runtime.RawExtension) (NamedObject, error) {
 		return NamedObject{}, err
 	}
 
-	return NamespacedObjectFromUnstructured(parsed)
+	return NamedObjectFromUnstructured(parsed)
 }
 
-// NamespacedObjectFromUnstructured converts an unstructured Kubernetes object
+// NamedObjectFromUnstructured converts an unstructured Kubernetes object
 // into a namespaced object. If the object does not have name or namespace set
 // an error will be returned.
-func NamespacedObjectFromUnstructured(unstructuredObj unstructured.Unstructured) (NamedObject, error) {
+func NamedObjectFromUnstructured(unstructuredObj unstructured.Unstructured) (NamedObject, error) {
 	obj := NamedObject(unstructuredObj.Object)
 
 	// "generateName" is used by pods before a, e.g., ReplicaSet controler
@@ -481,7 +481,7 @@ func (obj NamedObject) HashStr() (string, error) {
 	return base64.StdEncoding.EncodeToString(hasher.Sum([]byte{})), err
 }
 
-// getOrderedHash orders the keys in a NamespacedObject before creating an
+// getOrderedHash orders the keys in a NamedObject before creating an
 // incremental hash on each key/value pair
 func (obj NamedObject) getOrderedHash(hasher hash.Hash64) error {
 	// Go maps are not ordered.

@@ -85,7 +85,7 @@ func (p *ParsedAdmissionRequest) GetIncomingJSON() []byte {
 func (p *ParsedAdmissionRequest) GetIncomingObject() (NamedObject, error) {
 	if len(p.incomingObj) == 0 {
 		var err error
-		p.incomingObj, err = NamespacedObjectFromRaw(p.incomingRaw)
+		p.incomingObj, err = NamedObjectFromRaw(p.incomingRaw)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +99,7 @@ func (p *ParsedAdmissionRequest) GetIncomingObject() (NamedObject, error) {
 func (p *ParsedAdmissionRequest) GetExistingObject() (NamedObject, error) {
 	if len(p.existingObj) == 0 {
 		var err error
-		p.existingObj, err = NamespacedObjectFromRaw(p.existingRaw)
+		p.existingObj, err = NamedObjectFromRaw(p.existingRaw)
 		if err != nil {
 			return nil, err
 		}
