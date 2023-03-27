@@ -1,0 +1,16 @@
+name: 'release-please'
+on:
+  push:
+    branches:
+      - 'main'
+jobs:
+  release-please:
+    name: 'Release Please'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'main(simple)'
+        uses: 'google-github-actions/release-please-action@5c07f8be172b1f6e90f9c35baf8184461b91b85f' # 3.7.1
+        with:
+          default-branch: 'main'
+          release-type: 'simple'
+          changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"chore","section":"Miscellaneous","hidden":false}]'
