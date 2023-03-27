@@ -1,0 +1,14 @@
+.devcontainer/
+.git/
+.github/
+docs/
+kubernetes/
+google-cloud/
+.editorconfig
+.env
+.gitignore
+.pre-commit-config.yaml
+atlantis.yaml
+Dockerfile
+justfile
+README.md

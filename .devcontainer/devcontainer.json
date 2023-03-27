@@ -1,0 +1,19 @@
+{
+	"name": "gcp-tooling",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"remoteUser": "vscode",
+	"overrideCommand": false,
+	"postCreateCommand": "cd ~/scripts/developer && just setup-gcloud",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"skellock.just",
+				"yzhang.markdown-all-in-one",
+				"EditorConfig.EditorConfig",
+				"golang.go",
+			]
+		}
+	}
+}
