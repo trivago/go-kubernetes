@@ -6,6 +6,7 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/json-iterator/go v1.1.12
+	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.0
 	github.com/stretchr/testify v1.8.2
 	k8s.io/api v0.26.3
