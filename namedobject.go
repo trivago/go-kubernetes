@@ -15,24 +15,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// NamedObject represents a kubernetes object and provides common functionality
+// such as patch generators or accessing common fields.
 type NamedObject map[string]interface{}
 
+// WalkArgs is the parameter set passed to the walk function.
 type WalkArgs struct {
-	CreatePath   bool
-	MatchAll     bool
-	MatchFunc    func(value interface{}, path []string) bool
-	MutateFunc   func(value interface{}) interface{}
-	NotFoundFunc func(path []string)
+	// MatchAll will iterate over all matches when set to true.
+	MatchAll bool
 
-	path []string
+	// MatchFunc is called whenever a path is found to be matching.
+	// The path is the resolved path, i.e. array search notation is transformed
+	// into array index notation.
+	MatchFunc func(value interface{}, p Path) bool
+
+	// MutateFunc allows a value to be modified or deleted after match.
+	MutateFunc func(value interface{}) interface{}
+
+	// NotFoundFunc is alled whenever walk needs to abort path walking.
+	// The path contains the traversed path up to (and excluding) the key that was
+	// not found,
+	NotFoundFunc func(p Path)
+
+	walkedPath         Path
+	parent             interface{}
+	onParentChangeFunc func(interface{})
 }
-
-var (
-	PathMetadata       = []string{"metadata"}
-	PathLabels         = []string{"metadata", "labels"}
-	PathAnnotations    = []string{"metadata", "annotations"}
-	PathOwnerReference = []string{"metadata", "ownerReferences"}
-)
 
 // NamedObjectFromUnstructured converts a raw runtime object intor a
 // namespaced object. If the object does not have name or namespace set an
@@ -68,79 +76,62 @@ func NamedObjectFromUnstructured(unstructuredObj unstructured.Unstructured) (Nam
 
 	// "generateName" is used by pods before a, e.g., ReplicaSet controler
 	// processed the pod.
-	if !obj.Has(PathMetadata, "name") && !obj.Has(PathMetadata, "generateName") {
+	if !obj.Has(PathMetadataName) && !obj.Has(PathMetadataGenerateName) {
 		return obj, fmt.Errorf("object does not have a name set")
 	}
 
 	return obj, nil
 }
 
-// StringToPath generates a path array from a json path.
-func StringToPath(path string) []string {
-	return strings.Split(path, ".")
-}
+// Find looks for a path with the given value and returns all matching paths.
+// If nil is passed as a value, all full matching paths will be returned.
+func (obj NamedObject) FindAll(path Path, value interface{}) []Path {
+	matchedPaths := []Path{}
 
-// SplitPathKey splits a path array so that the last elemnt is returned as a
-// separate string. The path object itself will not be copied.
-func SplitPathKey(path []string) ([]string, string) {
-	lastIdx := len(path) - 1
-	if lastIdx < 0 {
-		return path, ""
-	}
-	return path[0:lastIdx], path[lastIdx]
-}
-
-// Find looks for a key inside path with the given value and returns all
-// matching paths. If nil is passed as a value, all pathes containing the key
-// will be returned.
-func (obj NamedObject) Find(path []string, key string, value interface{}) [][]string {
-	paths := [][]string{}
-
-	matchValue := func(v interface{}, path []string) bool {
+	matchValue := func(v interface{}, path Path) bool {
 		if value == nil || reflect.DeepEqual(v, value) {
-			paths = append(paths, path)
+			matchedPaths = append(matchedPaths, path)
 			return true
 		}
 		return false
 	}
 
-	obj.Walk(path, key, WalkArgs{
+	obj.Walk(path, WalkArgs{
 		MatchAll:  true,
 		MatchFunc: matchValue,
 	})
 
-	return paths
+	return matchedPaths
 }
 
-// FindFirst looks for a key inside path with the given value and returns the
-// first matching path. If nil is passed as a value, the first path with the key
-// set will be returned.
-func (obj NamedObject) FindFirst(path []string, key string, value interface{}) []string {
-	foundPath := []string{}
+// FindFirst looks for a path with the given value and returns the first,
+// resolved, matching path. If nil is passed as a value just the path will be
+// matched.
+func (obj NamedObject) FindFirst(path Path, value interface{}) Path {
+	matchedPath := Path{}
 
-	matchValue := func(v interface{}, path []string) bool {
+	matchValue := func(v interface{}, path Path) bool {
 		if value == nil || reflect.DeepEqual(v, value) {
-			foundPath = path
+			matchedPath = path
 			return true
 		}
 		return false
 	}
 
-	obj.Walk(path, key, WalkArgs{
+	obj.Walk(path, WalkArgs{
 		MatchAll:  false,
 		MatchFunc: matchValue,
 	})
 
-	return foundPath
+	return matchedPath
 }
 
 // Get will return an object for a given path.
 // If the object or any part of the path does not exist, nil is returned.
 // If an unindexed array notation is used ("[]") the first matching path is
 // returned.
-func (obj NamedObject) Get(path []string, key string) interface{} {
-	result, _ := obj.Walk(path, key, WalkArgs{})
-	return result
+func (obj NamedObject) Get(path Path) (interface{}, error) {
+	return obj.Walk(path, WalkArgs{})
 }
 
 // Set will set a value for a given key on a given path.
@@ -149,18 +140,17 @@ func (obj NamedObject) Get(path []string, key string) interface{} {
 // If any part of the path is not a map[string]interface{} or a slice of the
 // former, or the value cannot be set for any other reason, the function will
 // return false.
-func (obj NamedObject) Set(path []string, key string, value interface{}) bool {
+func (obj NamedObject) Set(path Path, value interface{}) error {
 	setValue := func(interface{}) interface{} {
-		// TODO: Support arrays
 		return value
 	}
 
-	_, ok := obj.Walk(path, key, WalkArgs{
+	_, err := obj.Walk(path, WalkArgs{
 		MatchAll:   true,
-		CreatePath: true,
 		MutateFunc: setValue,
 	})
-	return ok
+
+	return err
 }
 
 // Delete will remove a given key on a given path.
@@ -169,34 +159,38 @@ func (obj NamedObject) Set(path []string, key string, value interface{}) bool {
 // If the path is not valid because a key in the path does not exist, is no
 // map or array, false will be returned. If the key is deleted or does not exist,
 // true will be returned.
-func (obj NamedObject) Delete(path []string, key string) bool {
+func (obj NamedObject) Delete(path Path) error {
 	deleteKey := func(interface{}) interface{} {
 		return nil
 	}
 
-	_, found := obj.Walk(path, key, WalkArgs{
+	_, err := obj.Walk(path, WalkArgs{
 		MatchAll:   true,
 		MutateFunc: deleteKey,
 	})
-	return found
+	return err
 }
 
 // Has will return true if a key on a given path is set.
-func (obj NamedObject) Has(path []string, key string) bool {
-	_, found := obj.Walk(path, key, WalkArgs{})
-	return found
+func (obj NamedObject) Has(path Path) bool {
+	_, err := obj.Walk(path, WalkArgs{})
+	return err != nil
 }
 
 // GetString will return a string value assigned to a given key on a given path.
 // If the object is not a string or the path or key does not exist, false is
 // and an empty string returned.
-func (obj NamedObject) GetString(path []string, key string) (string, bool) {
-	if value := obj.Get(path, key); value == nil {
-		return "", false
-	} else {
-		str, ok := value.(string)
-		return str, ok
+func (obj NamedObject) GetString(path Path) (string, error) {
+	value, err := obj.Get(path)
+	if err != nil {
+		return "", err
 	}
+
+	str, ok := value.(string)
+	if !ok {
+		return str, ErrIncorrectType(reflect.TypeOf(value).String())
+	}
+	return str, nil
 }
 
 // GetName will return the name of the object.
@@ -204,30 +198,28 @@ func (obj NamedObject) GetString(path []string, key string) (string, bool) {
 // by the corresponding, e.g., ReplicaSet controller.
 // If the name is not set, an empty string is returned.
 func (obj NamedObject) GetName() string {
-	if name, ok := obj.GetString(PathMetadata, "name"); ok {
+	if name, err := obj.GetString(PathMetadataName); err == nil {
 		return name
 	}
-	if namePrefix, ok := obj.GetString(PathMetadata, "generateName"); ok {
+	if namePrefix, err := obj.GetString(PathMetadataGenerateName); err == nil {
 		return namePrefix
 	}
-
 	return ""
 }
 
 // GetName will return the namespace of the object.
 // If the namespace is not set, an empty string is returned.
 func (obj NamedObject) GetNamespace() string {
-	if namespace, ok := obj.GetString(PathMetadata, "namespace"); ok {
+	if namespace, err := obj.GetString(PathMetadataNamespace); err == nil {
 		return namespace
 	}
-
 	return ""
 }
 
 // GetOwnerKind returns the resource kind of an owning resource, e.g.,
 // ReplicaSet if the pod is managed by a ReplicaSet
 func (obj NamedObject) GetOwnerKind() string {
-	if owner, ok := obj.GetString(PathOwnerReference, "kind"); ok {
+	if owner, err := obj.GetString(PathOwnerReferenceKind); err == nil {
 		return owner
 	}
 	return ""
@@ -235,20 +227,20 @@ func (obj NamedObject) GetOwnerKind() string {
 
 // GetLabel will return the value of a given label.
 // If the label is not set, an empty string and false is returned.
-func (obj NamedObject) GetLabel(key string) (string, bool) {
-	return obj.GetString(PathLabels, key)
+func (obj NamedObject) GetLabel(key string) (string, error) {
+	return obj.GetString(NewPath(PathLabels, key))
 }
 
 // HasLabels returns true if a labels section exists
 func (obj NamedObject) HasLabels() bool {
-	return obj.Has(SplitPathKey(PathLabels))
+	return obj.Has(PathLabels)
 }
 
 // IsLabelSetTo checks if a specific label is set to a given value.
 // The comparison is done in a case insensitive way.
 func (obj NamedObject) IsLabelSetTo(key, value string) bool {
-	label, ok := obj.GetString(PathLabels, key)
-	if !ok {
+	label, err := obj.GetString(NewPath(PathLabels, key))
+	if err != nil {
 		return false
 	}
 	return strings.EqualFold(label, value)
@@ -257,8 +249,8 @@ func (obj NamedObject) IsLabelSetTo(key, value string) bool {
 // IsLabelNotSetTo checks if a specific label is not set to a given value.
 // The comparison is done in a case insensitive way.
 func (obj NamedObject) IsLabelNotSetTo(key, value string) bool {
-	label, ok := obj.GetString(PathLabels, key)
-	if !ok {
+	label, err := obj.GetString(NewPath(PathLabels, key))
+	if err != nil {
 		return true
 	}
 	return !strings.EqualFold(label, value)
@@ -266,20 +258,20 @@ func (obj NamedObject) IsLabelNotSetTo(key, value string) bool {
 
 // GetAnnotation will return the value of a given label.
 // If the annotation is not set, an empty string and false is returned.
-func (obj NamedObject) GetAnnotation(key string) (string, bool) {
-	return obj.GetString(PathAnnotations, key)
+func (obj NamedObject) GetAnnotation(key string) (string, error) {
+	return obj.GetString(NewPath(PathAnnotations, key))
 }
 
 // HasAnnotations returns true if an annotation section exists
 func (obj NamedObject) HasAnnotations() bool {
-	return obj.Has(SplitPathKey(PathAnnotations))
+	return obj.Has(PathAnnotations)
 }
 
 // IsAnnotationSetTo checks if a specific annotation is set to a given value.
 // The comparison is done in a case insensitive way.
 func (obj NamedObject) IsAnnotationSetTo(key, value string) bool {
-	annotation, ok := obj.GetString(PathAnnotations, key)
-	if !ok {
+	annotation, err := obj.GetString(NewPath(PathAnnotations, key))
+	if err != nil {
 		return false
 	}
 	return strings.EqualFold(annotation, value)
@@ -288,8 +280,8 @@ func (obj NamedObject) IsAnnotationSetTo(key, value string) bool {
 // IsAnnotationNotSetTo checks if a specific annotation is not set to a given value.
 // The comparison is done in a case insensitive way.
 func (obj NamedObject) IsAnnotationNotSetTo(key, value string) bool {
-	annotation, ok := obj.GetString(PathAnnotations, key)
-	if !ok {
+	annotation, err := obj.GetString(NewPath(PathAnnotations, key))
+	if err != nil {
 		return true
 	}
 	return !strings.EqualFold(annotation, value)
@@ -297,33 +289,36 @@ func (obj NamedObject) IsAnnotationNotSetTo(key, value string) bool {
 
 // SetName will set the name of the object.
 func (obj NamedObject) SetName(value string) {
-	obj.Set(PathMetadata, "name", value)
+	// p, k := obj.GeneratePatch(PathMetadataNamespace, value)
+	obj.Set(PathMetadataName, value)
 }
 
 // SetName will set the namespace of the object.
 func (obj NamedObject) SetNamespace(value string) {
-	obj.Set(PathMetadata, "namespace", value)
+	// p, k := obj.GeneratePatch(PathMetadataNamespace, value)
+	obj.Set(PathMetadataNamespace, value)
 }
 
 // SetAnnotation will set an annotation on the object.
 // It will create the annotations section if it does not exist.
 func (obj NamedObject) SetAnnotation(key, value string) {
-	obj.Set(PathAnnotations, key, value)
+	// p, k := obj.GeneratePatch(PathMetadataNamespace, value)
+	obj.Set(NewPath(PathAnnotations, key), value)
 }
 
 // IsOfKind returns true if the object is of the given kind and/or apiVersion.
 // Both kind and apiVersion can be an empty string, which translates to "any"
 func (obj NamedObject) IsOfKind(kind, apiVersion string) bool {
 	if kind != "" {
-		value, isString := obj.Get([]string{}, "kind").(string)
-		if !isString || !strings.EqualFold(value, kind) {
+		value, err := obj.GetString(Path{"kind"})
+		if err != nil || !strings.EqualFold(value, kind) {
 			return false
 		}
 	}
 
 	if apiVersion != "" {
-		value, isString := obj.Get([]string{}, "apiVersion").(string)
-		if !isString || !strings.EqualFold(value, apiVersion) {
+		value, err := obj.GetString(Path{"apiVersion"})
+		if err != nil || !strings.EqualFold(value, apiVersion) {
 			return false
 		}
 	}
@@ -331,6 +326,129 @@ func (obj NamedObject) IsOfKind(kind, apiVersion string) bool {
 	return true
 }
 
+// CreateAddPatch generates an add patch based.
+func (obj NamedObject) CreateAddPatch(path Path, value interface{}) PatchOperation {
+	return NewPatchOperationAdd(path.ToJSONPath(), value)
+}
+
+// PatchField generates a replace patch.
+func (obj NamedObject) CreateReplacePatch(path Path, value interface{}) PatchOperation {
+	return NewPatchOperationReplace(path.ToJSONPath(), value)
+}
+
+// RemoveField generates a remove patch.
+func (obj NamedObject) CreateRemovePatch(path Path) PatchOperation {
+	return NewPatchOperationRemove(path.ToJSONPath())
+}
+
+// RemoveManagedFields removes managed fields from an object.
+// See KubernetesManagedFields and FieldCleaner.
+func (obj NamedObject) RemoveManagedFields() {
+	ManagedFields.Clean(obj)
+}
+
+// Hash calculates an ordered hash of the object.
+func (obj NamedObject) Hash() (uint64, error) {
+	hasher := xxhash.New()
+	err := obj.getOrderedHash(hasher)
+	return hasher.Sum64(), err
+}
+
+// Hash calculates an ordered hash of the object an returns a base64 encoded
+// string.
+func (obj NamedObject) HashStr() (string, error) {
+	hasher := xxhash.New()
+	err := obj.getOrderedHash(hasher)
+
+	return base64.StdEncoding.EncodeToString(hasher.Sum([]byte{})), err
+}
+
+// getOrderedHash orders the keys in a NamedObject before creating an
+// incremental hash on each key/value pair
+func (obj NamedObject) getOrderedHash(hasher hash.Hash64) error {
+	// Go maps are not ordered.
+	// In order to get reproducible hashes, we need to sort each level.
+	// We also cannot marshal to JSON and take a hash of this, as the resulting
+	// JSON also has no ordering guarantees.
+
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.StringSlice(keys).Sort()
+
+	for _, k := range keys {
+		hasher.Write([]byte(k))
+		iv := obj[k]
+
+		if err := doHash(hasher, k, iv); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// doHash caclulates the has for a key/value pair of a specfic type.
+// Separated out of getOrderedHash so we can called it recursively during array
+// iteration.
+func doHash(hasher hash.Hash64, k string, iv interface{}) error {
+	switch v := iv.(type) {
+	case []byte:
+		hasher.Write(v)
+	case string:
+		hasher.Write([]byte(v))
+	case []string:
+		for _, str := range v {
+			hasher.Write([]byte(str))
+		}
+
+	case float32, float64:
+		str := fmt.Sprintf("%f", v)
+		hasher.Write([]byte(str))
+	case int, int16, int32, int64:
+		str := fmt.Sprintf("%d", v)
+		hasher.Write([]byte(str))
+	case uint, uint16, uint32, uint64:
+		str := fmt.Sprintf("%u", v)
+		hasher.Write([]byte(str))
+
+	case bool:
+		if v {
+			hasher.Write([]byte("true"))
+		} else {
+			hasher.Write([]byte("false"))
+		}
+
+	case NamedObject:
+		v.getOrderedHash(hasher)
+	case []NamedObject:
+		for _, o := range v {
+			o.getOrderedHash(hasher)
+		}
+
+	case map[string]interface{}:
+		o := NamedObject(v)
+		o.getOrderedHash(hasher)
+	case []map[string]interface{}:
+		for _, msi := range v {
+			o := NamedObject(msi)
+			o.getOrderedHash(hasher)
+		}
+	case []interface{}:
+		for _, element := range v {
+			if err := doHash(hasher, k, element); err != nil {
+				return err
+			}
+		}
+
+	default:
+		return fmt.Errorf("Cannot create hash for field %s of type %T", k, v)
+	}
+	return nil
+}
+
+/*
 func (obj NamedObject) FixPatchPath(path []string, value interface{}) ([]string, interface{}) {
 	if len(path) == 0 {
 		return path, value
@@ -441,292 +559,183 @@ func (obj NamedObject) FixPatchPath(path []string, value interface{}) ([]string,
 
 	return validPath, extendedValue
 }
+*/
 
-// CreateAddPatch generates an add patch based.
-func (obj NamedObject) CreateAddPatch(path []string, value interface{}) PatchOperation {
-	jsonPath := EscapeJSONPath(path)
-	return NewPatchOperationAdd(jsonPath, value)
+// Walk will iterate the path up until key is found or path cannot be matched.
+// If key is found, the value of key and true is returned. Otherwise nil and
+// false will be returned.
+func (obj *NamedObject) Walk(path Path, args WalkArgs) (interface{}, error) {
+	root := map[string]interface{}(*obj)
+	return walk(root, path, args)
 }
 
-// PatchField generates a replace patch.
-func (obj NamedObject) CreateReplacePatch(path []string, value interface{}) PatchOperation {
-	jsonPath := EscapeJSONPath(path)
-	return NewPatchOperationReplace(jsonPath, value)
-}
-
-// RemoveField generates a remove patch.
-func (obj NamedObject) CreateRemovePatch(path []string) PatchOperation {
-	jsonPath := EscapeJSONPath(path)
-	return NewPatchOperationRemove(jsonPath)
-}
-
-// RemoveManagedFields removes managed fields from an object.
-// See KubernetesManagedFields and FieldCleaner.
-func (obj NamedObject) RemoveManagedFields() {
-	ManagedFields.Clean(obj)
-}
-
-// Hash calculates an ordered hash of the object.
-func (obj NamedObject) Hash() (uint64, error) {
-	hasher := xxhash.New()
-	err := obj.getOrderedHash(hasher)
-	return hasher.Sum64(), err
-}
-
-// Hash calculates an ordered hash of the object an returns a base64 encoded
-// string.
-func (obj NamedObject) HashStr() (string, error) {
-	hasher := xxhash.New()
-	err := obj.getOrderedHash(hasher)
-
-	return base64.StdEncoding.EncodeToString(hasher.Sum([]byte{})), err
-}
-
-// getOrderedHash orders the keys in a NamedObject before creating an
-// incremental hash on each key/value pair
-func (obj NamedObject) getOrderedHash(hasher hash.Hash64) error {
-	// Go maps are not ordered.
-	// In order to get reproducible hashes, we need to sort each level.
-	// We also cannot marshal to JSON and take a hash of this, as the resulting
-	// JSON also has no ordering guarantees.
-
-	keys := make([]string, 0, len(obj))
-	for k := range obj {
-		keys = append(keys, k)
-	}
-	sort.StringSlice(keys).Sort()
-
-	for _, k := range keys {
-		hasher.Write([]byte(k))
-		iv := obj[k]
-
-		if err := doHash(hasher, k, iv); err != nil {
-			return err
+func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
+	// Internal helper function to react on "not found"
+	errNotFound := func() (interface{}, error) {
+		if args.NotFoundFunc != nil {
+			args.NotFoundFunc(args.walkedPath)
 		}
+		return nil, ErrNotFound(path[0])
 	}
 
-	return nil
-}
+	// If the path is empty we found the value.
+	if len(path) == 0 {
+		value := node
+		if args.MutateFunc != nil {
+			value = args.MutateFunc(value)
 
-// doHash caclulates the has for a key/value pair of a specfic type.
-// Separated out of getOrderedHash so we can called it recursively during array
-// iteration.
-func doHash(hasher hash.Hash64, k string, iv interface{}) error {
-	switch v := iv.(type) {
-	case []byte:
-		hasher.Write(v)
-	case string:
-		hasher.Write([]byte(v))
-	case []string:
-		for _, str := range v {
-			hasher.Write([]byte(str))
-		}
+			// Modify the hierarchy. This requires modification of the parent node
+			// This is either an array or a map. As we are working on a copy of the
+			// "header data", we need to propagate the changes back.
+			switch reflect.ValueOf(args.parent).Kind() {
+			case reflect.Map:
+				parent, ok := args.parent.(map[string]interface{})
+				if !ok {
+					return nil, ErrNotTraversable("parent is not a map")
+				}
+				if value == nil {
+					delete(parent, args.getNodeKey())
+				} else {
+					parent[args.getNodeKey()] = value
+				}
+				args.onParentChange(parent)
 
-	case float32, float64:
-		str := fmt.Sprintf("%f", v)
-		hasher.Write([]byte(str))
-	case int, int16, int32, int64:
-		str := fmt.Sprintf("%d", v)
-		hasher.Write([]byte(str))
-	case uint, uint16, uint32, uint64:
-		str := fmt.Sprintf("%u", v)
-		hasher.Write([]byte(str))
+			case reflect.Array, reflect.Slice:
+				parent, ok := args.parent.([]interface{})
+				if !ok {
+					return nil, ErrNotTraversable("parent is not a slice")
+				}
+				idx, _ := strconv.ParseInt(args.getNodeKey(), 10, 32)
 
-	case bool:
-		if v {
-			hasher.Write([]byte("true"))
-		} else {
-			hasher.Write([]byte("false"))
-		}
+				if value == nil {
+					parent = append(parent[:idx], parent[idx+1:]...)
+				} else {
+					parent[idx] = value
+				}
+				args.onParentChange(parent)
 
-	case NamedObject:
-		v.getOrderedHash(hasher)
-	case []NamedObject:
-		for _, o := range v {
-			o.getOrderedHash(hasher)
-		}
-
-	case map[string]interface{}:
-		o := NamedObject(v)
-		o.getOrderedHash(hasher)
-	case []map[string]interface{}:
-		for _, msi := range v {
-			o := NamedObject(msi)
-			o.getOrderedHash(hasher)
-		}
-	case []interface{}:
-		for _, element := range v {
-			if err := doHash(hasher, k, element); err != nil {
-				return err
+			default:
+				// nil value, no change required
 			}
 		}
 
-	default:
-		return fmt.Errorf("Cannot create hash for field %s of type %T", k, v)
-	}
-	return nil
-}
-
-// Has will return true if a key on a given path is set.
-func (obj NamedObject) Walk(searchPath []string, key string, args WalkArgs) (interface{}, bool) {
-	node := obj
-	path := make([]string, 0, len(args.path)+len(searchPath)+1)
-	path = append(path, args.path...)
-
-	// Path contains either maps or arrays, as key, evtually holding other value
-	// types is handled at the end. I.e. this loop only processes structural
-	// elements.
-
-	for searchPathIdx, searchPathElement := range searchPath {
-		searchPathKey := searchPathElement
-		arrayNotation := searchPathElement[len(searchPathElement)-1] == ']'
-
-		if arrayNotation {
-			searchPathKey = searchPathElement[:strings.LastIndexByte(searchPathElement, '[')]
+		if args.MatchFunc != nil {
+			args.MatchFunc(value, args.walkedPath)
 		}
 
-		// Does the key exist?
-		// TODO: This test has to change if we accept node being an array, too.
-		child, ok := node[searchPathKey]
+		return value, nil
+	}
+
+	// Don't travers nil nodes
+	if node == nil {
+		return nil, ErrNotTraversable(args.getNodeKey() + " is nil")
+	}
+
+	// We're still traversing through the path.
+	// There's at least one more traversal step, i.e. len(path) >= 1.
+
+	switch reflect.ValueOf(node).Kind() {
+	case reflect.Map:
+		object, ok := node.(map[string]interface{})
 		if !ok {
-			if !args.CreatePath {
-				args.onNotFound(path)
-				return nil, false // not found
-			}
+			return nil, ErrNotTraversable(args.getNodeKey() + " is not a map")
+		}
+		nextNode, exists := object[path[0]]
+		if !exists {
+			return errNotFound()
+		}
+		return walk(nextNode, path[1:], args.push(node, path[0], func(p interface{}) {
+			object[path[0]] = p
+		}))
 
-			// Create the node and continue processing it
-			if arrayNotation {
-				child = []map[string]interface{}{
-					make(map[string]interface{}),
-				}
-			} else {
-				child = make(map[string]interface{})
-			}
-			node[searchPathKey] = child
+	case reflect.Array, reflect.Slice:
+		array, ok := node.([]interface{})
+		if !ok {
+			return nil, ErrNotTraversable(args.getNodeKey() + " is not a slice")
 		}
 
-		// Walk an array / access a specific element
-		if arrayNotation {
-			childArray, ok := child.([]interface{})
-			if !ok {
-				args.onNotFound(path) // as-if not found
-				return nil, false     // error: not an array
+		switch GetArrayNotation(path[0]) {
+		case ArrayNotationIndex:
+			// Explicit index traversal
+			arrayIdx := path[0]
+			idx, err := strconv.ParseInt(arrayIdx, 10, 32)
+			if err != nil {
+				return nil, err
 			}
-
-			// If we do not find the element, return the array element in "existing"
-			// notation.
-			wildcardPath := append(path, searchPathKey+"[]")
-
-			if len(childArray) == 0 {
-				args.onNotFound(wildcardPath) // child not found
-				return nil, false             // not found, empty
+			if idx >= int64(len(array)) {
+				return errNotFound()
 			}
+			return walk(array[idx], path[1:], args.push(node, arrayIdx, func(p interface{}) {
+				args.onParentChange(p)
+			}))
 
-			// Read array index from string
-			arrayIdxStr := searchPathElement[strings.LastIndexByte(searchPathElement, '[')+1 : len(searchPathElement)-1]
-
-			// Direct element access
-			if len(arrayIdxStr) > 0 {
-				arrayIdx, err := strconv.Atoi(arrayIdxStr)
-				if err != nil {
-					return nil, false // error: invalid array syntax
-				}
-				if arrayIdx >= len(childArray) {
-					args.onNotFound(wildcardPath) // child not found
-					return nil, false             // not found, out of bounds
-				}
-
-				path = append(path, searchPathElement) // Notation is already ok
-
-				// TODO: Array-in-array does not work as we expect node to always be
-				//       a map[string]interface{}. We can fix this by making it an
-				//       interface{} but that requires more casting.
-				mapElement, ok := childArray[arrayIdx].(map[string]interface{})
-				if !ok {
-					args.onNotFound(path) // as-if not found
-					return nil, false     // error: not a map
-				}
-
-				node = mapElement
-				continue
-			}
-
-			// Search for element(s)
-			// If multi-match is requested, collect all matches
-			matches := []interface{}{}
-
-			for arrayIdx, element := range childArray {
-				// TODO: Array-in-array does not work (see above)
-				mapElement, ok := element.(map[string]interface{})
-				if !ok {
-					continue
-				}
-
-				// Process element via sub-tree call
-				// Done recursively as we need to "pop" paths that don't yield a result
-				// Pass the path up to this point to the nested call.
-				// Note: copy because assign creates an implicit reference, conflicting
-				//       with wildcardPath, which is also a reference.
-				args.path = make([]string, 0, len(path)+1)
-				args.path = append(args.path, path...)
-				args.path = append(args.path, fmt.Sprintf("%s[%d]", searchPathKey, arrayIdx))
-
-				if result, found := NamedObject(mapElement).Walk(searchPath[searchPathIdx+1:], key, args); found {
-					if !args.MatchAll {
-						return result, true // found
+		case ArrayNotationTraversal:
+			if !args.MatchAll {
+				// Look for the first match only
+				for idx, child := range array {
+					idxStr := strconv.Itoa(idx)
+					v, err := walk(child, path[1:], args.push(node, idxStr, func(p interface{}) {
+						args.onParentChange(p)
+					}))
+					if err == nil {
+						return v, nil
 					}
-					matches = append(matches, result)
 				}
+				return errNotFound()
 			}
 
-			if len(matches) == 0 {
-				args.onNotFound(wildcardPath) // child not found
-				return nil, false             // not found
+			// Try all indexes and collect matches in a list
+			values := []interface{}{}
+			for idx, child := range array {
+				idxStr := strconv.Itoa(idx)
+				v, err := walk(child, path[1:], args.push(node, idxStr, func(p interface{}) {
+					args.onParentChange(p)
+					node = p // make sure we pass the modified array to the next element
+				}))
+				if err == nil {
+					values = append(values, v)
+				}
+				// Ignore errors in sub-paths
 			}
+			if len(values) == 0 {
+				return errNotFound()
+			}
+			if len(values) == 1 {
+				return values[0], nil
+			}
+			return values, nil
 
-			return matches, true
-		}
-
-		// Walk the tree
-		if node, ok = child.(map[string]interface{}); !ok {
-			args.onNotFound(path) // as-if not found
-			return nil, false     // error: not a map
-		}
-
-		path = append(path, searchPathKey)
-	}
-
-	// TODO: key cannot be an array
-
-	value, ok := node[key]
-
-	if ok && args.MatchFunc != nil {
-		path = append(path, key)
-		if !args.MatchFunc(value, path) {
-			args.onNotFound(path) // override existing
-			return nil, false
+		default:
+			return nil, ErrMissingArrayTraversal(args.getNodeKey())
 		}
 	}
 
-	if args.MutateFunc != nil {
-		newValue := args.MutateFunc(value)
-		if newValue != nil {
-			node[key] = newValue
-			return newValue, true
-		}
-		delete(node, key)
-		return nil, true
-	}
-
-	if !ok {
-		args.onNotFound(path) // key not found
-	}
-
-	return value, ok
+	return nil, ErrNotTraversable(args.getNodeKey() + " is " + reflect.ValueOf(node).Kind().String())
 }
 
-func (args WalkArgs) onNotFound(path []string) {
-	if args.NotFoundFunc != nil {
-		args.NotFoundFunc(path)
+// push creates a new args argument for the next recursion level.
+// currentNode expects the node currently processed
+// currentKey expects the key of the currently processed node
+// onParentChange is a function called if the contents of currentNode changed
+func (src WalkArgs) push(currentNode interface{}, currentKey string, onParentChange func(interface{})) WalkArgs {
+	args := src
+	args.walkedPath = NewPath(src.walkedPath, currentKey)
+	args.parent = currentNode
+	args.onParentChangeFunc = onParentChange
+	return args
+}
+
+// onParentChange is a wrapper around onParentChangeFunc to avoid nil calls
+func (args WalkArgs) onParentChange(p interface{}) {
+	if args.onParentChangeFunc != nil {
+		args.onParentChangeFunc(p)
 	}
+}
+
+// getNodeKey returns the name of the current key
+func (args WalkArgs) getNodeKey() string {
+	if len(args.walkedPath) == 0 {
+		return ""
+	}
+	return args.walkedPath[len(args.walkedPath)-1]
 }

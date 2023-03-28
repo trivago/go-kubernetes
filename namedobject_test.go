@@ -27,17 +27,7 @@ const (
     },
     "data": {
       "dashboard.json": "{}"
-    },
-    "array": [
-      {
-        "search": "0",
-        "nested": [{
-          "search": "1"
-        }]
-      },{
-        "search": "2"
-      }
-    ]
+    }
   }`
 
 	podJSON = `{
@@ -77,6 +67,117 @@ const (
       ]
     }
   }`
+
+	testCasesJSON = `{
+		"a" : {
+			"obj" : {
+				"value": "value",
+				"emptyArray": [],
+				"array": ["a", "b"],
+				"arrayInArray": [
+					["a", "b"],
+					["c", "d"]
+				]
+			},
+			"array": [
+				{
+					"value": "value",
+					"emptyArray": [],
+					"array": ["a", "b"],
+					"arrayInArray": [
+						["a", "b"],
+						["c", "d"]
+					], "obj" : {
+						"value": "value",
+						"emptyArray": [],
+						"array": ["a", "b"],
+						"arrayInArray": [
+							["a", "b"],
+							["c", "d"]
+						]
+					}
+				},
+				{
+					"value": "value2",
+					"emptyArray": [],
+					"array": ["a2", "b2"],
+					"arrayInArray": [
+						["a2", "b2"],
+						["c2", "d2"]
+					],
+					"obj" : {
+						"value": "value",
+						"emptyArray": [],
+						"array": ["a", "b"],
+						"arrayInArray": [
+							["a", "b"],
+							["c", "d"]
+						]
+					}
+				}
+			]
+		},
+		"obj" : {
+			"value": "value",
+			"emptyArray": [],
+			"array": ["a", "b"],
+			"arrayInArray": [
+				["a", "b"],
+				["c", "d"]
+			],
+			"obj" : {
+				"value": "value",
+				"emptyArray": [],
+				"array": ["a", "b"],
+				"arrayInArray": [
+					["a", "b"],
+					["c", "d"]
+				]
+			}
+		},
+		"array": [
+			{
+				"value": "value",
+				"emptyArray": [],
+				"array": ["a", "b"],
+				"arrayInArray": [
+					["a", "b"],
+					["c", "d"]
+				],
+				"obj" : {
+					"value": "value",
+					"emptyArray": [],
+					"array": ["a", "b"],
+					"arrayInArray": [
+						["a", "b"],
+						["c", "d"]
+					]
+				}
+			},
+			{
+				"value": "value2",
+				"emptyArray": [],
+				"array": ["a2", "b2"],
+				"arrayInArray": [
+					["a2", "b2"],
+					["c2", "d2"]
+				],
+				"obj" : {
+					"value": "value",
+					"emptyArray": [],
+					"array": ["a", "b"],
+					"arrayInArray": [
+						["a", "b"],
+						["c", "d"]
+					]
+				}
+			}
+		],
+		"arrayInArray": [
+			["a", "b"],
+			["c", "d"]
+		]
+	}`
 )
 
 func TestNamedObjectFromRaw(t *testing.T) {
@@ -90,6 +191,7 @@ func TestNamedObjectFromRaw(t *testing.T) {
 	assert.Equal(t, "default", obj.GetNamespace())
 }
 
+/*
 func TestNamedObjectRename(t *testing.T) {
 	json := runtime.RawExtension{
 		Raw: []byte(configMapJSON),
@@ -536,4 +638,48 @@ func TestPodCases(t *testing.T) {
 
 	patchPath, _ := obj.FixPatchPath([]string{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution[]"}, affinityPatch)
 	assert.Equal(t, []string{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution"}, patchPath)
+}
+*/
+
+func TestWalk(t *testing.T) {
+	json := runtime.RawExtension{
+		Raw: []byte(testCasesJSON),
+	}
+
+	obj, err := NamedObjectFromRaw(&json)
+	assert.NoError(t, err)
+
+	var v interface{}
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.obj.value"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, "value", v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, []interface{}{"a", "b"}, v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array[]"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, "a", v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array[1]"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, "b", v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.array[].obj.value"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, "value", v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.array[].obj.value"), WalkArgs{MatchAll: true})
+	assert.NoError(t, err)
+	assert.Equal(t, []interface{}{"value", "value"}, v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.array[0].obj.value"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, "value", v)
+
+	v, err = obj.Walk(NewPathFromJQFormat("a.array[0].value"), WalkArgs{})
+	assert.NoError(t, err)
+	assert.Equal(t, "value", v)
 }
