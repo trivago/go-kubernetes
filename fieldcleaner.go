@@ -5,7 +5,7 @@ type FieldCleaner struct {
 	nested map[string]FieldCleaner
 }
 
-var KubernetesManagedFields = FieldCleaner{
+var ManagedFields = FieldCleaner{
 	nested: map[string]FieldCleaner{
 		"metadata": {
 			fields: []string{

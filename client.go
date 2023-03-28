@@ -2,11 +2,12 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// Client allows communication with the kubernetes API.
 type Client struct {
 	client              dynamic.Interface
 	discoveryClient     *discovery.DiscoveryClient
@@ -53,24 +55,30 @@ func NewClient(kubeconfig string) (*Client, error) {
 	return &k8sClient, nil
 }
 
-// GetNamespacedResource creates an object to interact with a namespaced resource
-func (k8s *Client) GetNamespacedResourceHandle(resource schema.GroupVersionResource, namespace string) dynamic.ResourceInterface {
-	return k8s.client.Resource(resource).Namespace(namespace)
-}
-
-// GetObject returns a specific kubernetes object
-func (k8s *Client) GetObject(resource schema.GroupVersionResource, name, namespace string) (NamespacedObject, error) {
-	resourceHandle := k8s.GetNamespacedResourceHandle(resource, namespace)
+// GetNamedObject returns a specific kubernetes object
+func (k8s *Client) GetNamedObject(resource schema.GroupVersionResource, name string) (NamedObject, error) {
+	resourceHandle := k8s.client.Resource(resource)
 	rawObject, err := resourceHandle.Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	return NamespacedObjectFromUnstructured(*rawObject)
+	return NamedObjectFromUnstructured(*rawObject)
+}
+
+// GetNamespacedObject returns a specific kubernetes object from a specific namespace
+func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, name, namespace string) (NamedObject, error) {
+	resourceHandle := k8s.client.Resource(resource).Namespace(namespace)
+	rawObject, err := resourceHandle.Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return NamedObjectFromUnstructured(*rawObject)
 }
 
 // ListAllObjects returns a list of objects for a given type
-func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector string) ([]unstructured.Unstructured, error) {
+func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector string) ([]NamedObject, error) {
 	resourceHandle := k8s.client.Resource(resource)
 	options := metav1.ListOptions{
 		LabelSelector: selector,
@@ -78,8 +86,21 @@ func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector
 
 	list, err := resourceHandle.List(context.Background(), options)
 	if err != nil {
-		return []unstructured.Unstructured{}, err
+		return []NamedObject{}, err
 	}
 
-	return list.Items, nil
+	resultList := make([]NamedObject, 0, len(list.Items))
+
+	for _, rawObject := range list.Items {
+		obj, parseErr := NamedObjectFromUnstructured(rawObject)
+		if parseErr != nil {
+			if err != nil {
+				err = fmt.Errorf("Error parsing item(s) from list")
+			}
+			errors.Wrap(err, err.Error())
+		}
+		resultList = append(resultList, obj)
+	}
+
+	return resultList, err
 }
