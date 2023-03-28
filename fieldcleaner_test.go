@@ -38,7 +38,7 @@ func TestFieldCleaner(t *testing.T) {
 	err := jsoniter.UnmarshalFromString(testFieldCleanerJSON, &obj)
 	assert.NoError(t, err)
 
-	KubernetesManagedFields.Clean(obj)
+	ManagedFields.Clean(obj)
 
 	assert.False(t, obj.Has([]string{"metadata"}, "uid"))
 	assert.False(t, obj.Has([]string{"metadata"}, "resourceVersion"))

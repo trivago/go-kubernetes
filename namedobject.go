@@ -463,7 +463,7 @@ func (obj NamedObject) CreateRemovePatch(path []string) PatchOperation {
 // RemoveManagedFields removes managed fields from an object.
 // See KubernetesManagedFields and FieldCleaner.
 func (obj NamedObject) RemoveManagedFields() {
-	KubernetesManagedFields.Clean(obj)
+	ManagedFields.Clean(obj)
 }
 
 // Hash calculates an ordered hash of the object.
