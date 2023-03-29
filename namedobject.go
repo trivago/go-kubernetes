@@ -33,7 +33,7 @@ type WalkArgs struct {
 	MutateFunc func(value interface{}) interface{}
 
 	// NotFoundFunc is alled whenever walk needs to abort path walking.
-	// The path contains the traversed path up to (and excluding) the key that was
+	// The path contains the traversed path up to (including) the key that was
 	// not found,
 	NotFoundFunc func(p Path)
 
@@ -463,29 +463,41 @@ func (obj *NamedObject) Walk(path Path, args WalkArgs) (interface{}, error) {
 	return walk(root, path, args)
 }
 
-// GeneratePatch will reduce the given path to the longest existing match and
-// modify value so that it creates the missing part, including the original
-// value.
+// GeneratePatch will reduce the given path so that only exisiting elements are
+// included. The given value will be extended so that missing elements from the
+// path will be created. Please note that path creation will fail if non-
+// existing arrays are addressed using index notation.
 func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interface{}, error) {
 	if len(path) == 0 {
 		return path, value, nil
 	}
 
-	var validPath []string
+	validPath := Path{}
 	_, err := obj.Walk(path, WalkArgs{
+		MatchFunc: func(v interface{}, p Path) bool {
+			validPath = p
+			fmt.Println(p)
+			return true
+		},
 		NotFoundFunc: func(p Path) {
 			validPath = p
+			fmt.Println(p)
 		},
 	})
 
 	// Full match or everything-but-last-key match
-	if err == nil || len(validPath) == len(path)-1 {
-		return path, value, nil
+	if err == nil {
+		return validPath, value, nil
+	}
+
+	// "Late" full match (last key does not exist)
+	if len(validPath) == len(path) {
+		return validPath, value, nil
 	}
 
 	// We should get isNotFound. Otherwise return the error
 	if _, isNotFound := err.(ErrNotFound); !isNotFound {
-		return path, value, err
+		return validPath, value, err
 	}
 
 	var (
@@ -493,31 +505,44 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 		extendedValue interface{}
 	)
 
+	addToParent := func(node interface{}, idx int) {
+		switch parent := parentNode.(type) {
+		case []interface{}:
+			parent[0] = node
+		case map[string]interface{}:
+			key := path[idx]
+			parent[key] = node
+		case nil:
+			key := path[idx]
+			if GetArrayNotation(key) == ArrayNotationInvalid {
+				extendedValue = map[string]interface{}{
+					key: node,
+				}
+			} else {
+				// Array-in-array case
+				extendedValue = []interface{}{node}
+			}
+		}
+	}
+
+	// Iterate but skip last key. This key will hold the value.
 	for idx := len(validPath); idx < len(path)-1; idx++ {
 		var newNode interface{}
 		if isArray, arrayNotation := path.IsArray(idx); !isArray {
 			newNode = make(map[string]interface{})
 		} else {
 			if arrayNotation != ArrayNotationTraversal {
-				return path, value, ErrNotTraversable("Only traversal notation is supported for arrays")
+				return validPath, value, ErrNotTraversable("Cannot create indexed array")
 			}
 			newNode = make([]interface{}, 1)
 			idx++ // skip array notation
 		}
 
-		switch parent := parentNode.(type) {
-		case []interface{}:
-			parent[0] = newNode
-		case map[string]interface{}:
-			key := path[idx]
-			parent[key] = newNode
-		case nil:
-			extendedValue = newNode
-		}
-
+		addToParent(newNode, idx)
 		parentNode = newNode
 	}
 
+	addToParent(value, len(path)-1)
 	return validPath, extendedValue, nil
 }
 
@@ -525,9 +550,9 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 // type of node objects.
 func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 	// Internal helper function to react on "not found"
-	errNotFound := func() (interface{}, error) {
+	errNotFound := func(key string) (interface{}, error) {
 		if args.NotFoundFunc != nil {
-			args.NotFoundFunc(args.walkedPath)
+			args.NotFoundFunc(append(args.walkedPath, key))
 		}
 		return nil, ErrNotFound(path[0])
 	}
@@ -595,9 +620,12 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 		if !ok {
 			return nil, ErrNotTraversable(args.getNodeKey() + " is not a map")
 		}
+		if GetArrayNotation(path[0]) != ArrayNotationInvalid {
+			return nil, ErrNotAnArray(args.getNodeKey())
+		}
 		nextNode, exists := object[path[0]]
 		if !exists {
-			return errNotFound()
+			return errNotFound(path[0])
 		}
 		return walk(nextNode, path[1:], args.push(node, path[0], func(p interface{}) {
 			object[path[0]] = p
@@ -618,7 +646,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 				return nil, err
 			}
 			if idx >= int64(len(array)) {
-				return errNotFound()
+				return errNotFound(arrayIdx)
 			}
 			return walk(array[idx], path[1:], args.push(node, arrayIdx, func(p interface{}) {
 				args.onParentChange(p)
@@ -636,7 +664,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 						return v, nil
 					}
 				}
-				return errNotFound()
+				return errNotFound("-")
 			}
 
 			// Try all indexes and collect matches in a list
@@ -653,7 +681,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 				// Ignore errors in sub-paths
 			}
 			if len(values) == 0 {
-				return errNotFound()
+				return errNotFound("-")
 			}
 			if len(values) == 1 {
 				return values[0], nil

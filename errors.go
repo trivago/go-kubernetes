@@ -20,6 +20,12 @@ func (e ErrMissingArrayTraversal) Error() string {
 	return fmt.Sprintf("Array traversal indicator missing: %s", string(e))
 }
 
+type ErrNotAnArray string
+
+func (e ErrNotAnArray) Error() string {
+	return fmt.Sprintf("Not an array: %s", string(e))
+}
+
 type ErrNotKeyValue string
 
 func (e ErrNotKeyValue) Error() string {
