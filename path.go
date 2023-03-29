@@ -58,10 +58,10 @@ var (
 
 // NewPath creates a new path object by appending a key to the given path.
 // Note that this function will always allocate new memory.
-func NewPath(p Path, key string) Path {
+func NewPath(p Path, key ...string) Path {
 	newPath := make(Path, len(p), len(p)+1)
 	copy(newPath, p)
-	return append(newPath, key)
+	return append(newPath, key...)
 }
 
 // ConcatPaths will create a new path object by concatenating both pathes.

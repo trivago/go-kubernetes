@@ -289,21 +289,28 @@ func (obj NamedObject) IsAnnotationNotSetTo(key, value string) bool {
 
 // SetName will set the name of the object.
 func (obj NamedObject) SetName(value string) {
-	// p, k := obj.GeneratePatch(PathMetadataNamespace, value)
-	obj.Set(PathMetadataName, value)
+	p, v, _ := obj.GeneratePatch(PathMetadataName, value)
+	obj.Set(p, v)
 }
 
 // SetName will set the namespace of the object.
 func (obj NamedObject) SetNamespace(value string) {
-	// p, k := obj.GeneratePatch(PathMetadataNamespace, value)
-	obj.Set(PathMetadataNamespace, value)
+	p, v, _ := obj.GeneratePatch(PathMetadataNamespace, value)
+	obj.Set(p, v)
 }
 
 // SetAnnotation will set an annotation on the object.
 // It will create the annotations section if it does not exist.
 func (obj NamedObject) SetAnnotation(key, value string) {
-	// p, k := obj.GeneratePatch(PathMetadataNamespace, value)
-	obj.Set(NewPath(PathAnnotations, key), value)
+	p, v, _ := obj.GeneratePatch(NewPath(PathAnnotations, key), value)
+	obj.Set(p, v)
+}
+
+// SetAnnotation will set a label on the object.
+// It will create the labels section if it does not exist.
+func (obj NamedObject) SetLabel(key, value string) {
+	p, v, _ := obj.GeneratePatch(NewPath(PathLabels, key), value)
+	obj.Set(p, v)
 }
 
 // IsOfKind returns true if the object is of the given kind and/or apiVersion.
@@ -448,119 +455,6 @@ func doHash(hasher hash.Hash64, k string, iv interface{}) error {
 	return nil
 }
 
-/*
-func (obj NamedObject) FixPatchPath(path []string, value interface{}) ([]string, interface{}) {
-	if len(path) == 0 {
-		return path, value
-	}
-
-	var validPath []string
-	lastPathIdx := len(path) - 1
-	key := path[lastPathIdx]
-
-	_, fullMatch := obj.Walk(path[:lastPathIdx], key, WalkArgs{
-		NotFoundFunc: func(p []string) {
-			validPath = p
-		},
-	})
-
-	// Even if "key" does not exist, we have a valid path, as key will be generated
-	if fullMatch {
-		return path, value
-	}
-
-	var (
-		nextNode      interface{}
-		parent        interface{}
-		extendedValue interface{}
-	)
-
-	// Add the next key to it, as a non-existing key needs to be the last element
-	// of the path.
-	nextKey := path[len(validPath)]
-
-	if nextKey[len(nextKey)-1] == ']' {
-		// Array keys need special handling as validPath does not distinguish
-		// between "next key not found" and "subpath not part of next key".
-		nextKey = nextKey[:strings.LastIndexByte(nextKey, '[')]
-
-		if obj.Has(validPath, nextKey) {
-			nextKey += "[]"
-		} else {
-			// value needs to be wrapped in an array
-			if len(validPath) == len(path)-1 {
-				value = []interface{}{value}
-			} else {
-				extendedValue = []interface{}{} // TODO: test case missing
-			}
-		}
-	}
-	validPath = append(validPath, nextKey)
-
-	// "late full match"
-	if len(validPath) == len(path) {
-		return validPath, value
-	}
-
-	// At minimum, "key" is left
-
-	// Walk remaining path, excluding key.
-	// All elements are either an array or a map
-	for idx := len(validPath); idx < len(path)-1; idx++ {
-		element := path[idx]
-		if element[len(element)-1] == ']' {
-			element = element[:strings.LastIndexByte(element, '[')]
-			nextNode = make([]interface{}, 1)
-		} else {
-			nextNode = make(map[string]interface{})
-		}
-
-		switch p := parent.(type) {
-		case []interface{}: // TODO: test case missing
-			p[0] = map[string]interface{}{
-				element: nextNode,
-			}
-		case map[string]interface{}: // TODO: test case missing
-			p[element] = nextNode
-		case nil:
-			extendedValue = map[string]interface{}{
-				element: nextNode,
-			}
-		}
-		parent = nextNode
-	}
-
-	// Add last key
-	// Normalize it first
-	if key[len(key)-1] == ']' {
-		key = key[:strings.LastIndexByte(key, '[')]
-		value = []interface{}{value}
-	}
-
-	switch p := parent.(type) {
-	case []interface{}:
-		p[0] = map[string]interface{}{
-			key: value,
-		}
-	case map[string]interface{}:
-		p[key] = value
-	case nil:
-		if key[len(key)-1] == ']' { // TODO: test case missing
-			arrayKey := key[:strings.LastIndexByte(key, '[')] + "[]"
-			extendedValue = map[string]interface{}{
-				arrayKey: []interface{}{value},
-			}
-		} else {
-			extendedValue = map[string]interface{}{
-				key: value,
-			}
-		}
-	}
-
-	return validPath, extendedValue
-}
-*/
-
 // Walk will iterate the path up until key is found or path cannot be matched.
 // If key is found, the value of key and true is returned. Otherwise nil and
 // false will be returned.
@@ -569,6 +463,66 @@ func (obj *NamedObject) Walk(path Path, args WalkArgs) (interface{}, error) {
 	return walk(root, path, args)
 }
 
+// GeneratePatch will reduce the given path to the longest existing match and
+// modify value so that it creates the missing part, including the original
+// value.
+func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interface{}, error) {
+	if len(path) == 0 {
+		return path, value, nil
+	}
+
+	var validPath []string
+	_, err := obj.Walk(path, WalkArgs{
+		NotFoundFunc: func(p Path) {
+			validPath = p
+		},
+	})
+
+	// Full match or everything-but-last-key match
+	if err == nil || len(validPath) == len(path)-1 {
+		return path, value, nil
+	}
+
+	// We should get isNotFound. Otherwise return the error
+	if _, isNotFound := err.(ErrNotFound); !isNotFound {
+		return path, value, err
+	}
+
+	var (
+		parentNode    interface{}
+		extendedValue interface{}
+	)
+
+	for idx := len(validPath); idx < len(path)-1; idx++ {
+		var newNode interface{}
+		if isArray, arrayNotation := path.IsArray(idx); !isArray {
+			newNode = make(map[string]interface{})
+		} else {
+			if arrayNotation != ArrayNotationTraversal {
+				return path, value, ErrNotTraversable("Only traversal notation is supported for arrays")
+			}
+			newNode = make([]interface{}, 1)
+			idx++ // skip array notation
+		}
+
+		switch parent := parentNode.(type) {
+		case []interface{}:
+			parent[0] = newNode
+		case map[string]interface{}:
+			key := path[idx]
+			parent[key] = newNode
+		case nil:
+			extendedValue = newNode
+		}
+
+		parentNode = newNode
+	}
+
+	return validPath, extendedValue, nil
+}
+
+// walk is the internal implementation of the walk function, accepting different
+// type of node objects.
 func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 	// Internal helper function to react on "not found"
 	errNotFound := func() (interface{}, error) {
@@ -589,6 +543,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			// "header data", we need to propagate the changes back.
 			switch reflect.ValueOf(args.parent).Kind() {
 			case reflect.Map:
+				// TODO: This fails if a NamedObject is passed into this function
 				parent, ok := args.parent.(map[string]interface{})
 				if !ok {
 					return nil, ErrNotTraversable("parent is not a map")
