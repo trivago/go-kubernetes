@@ -211,14 +211,25 @@ func (p Path) IsArray(idx int) (bool, ArrayNotation) {
 	}
 
 	pathAtIdx := p[idx:]
+
+	// Unnamed array
+	if len(pathAtIdx) < 1 {
+		return false, ArrayNotationInvalid
+	}
+	if notation := GetArrayNotation(pathAtIdx[0]); notation != ArrayNotationInvalid {
+		return true, notation
+	}
+
+	// Named array
 	if len(pathAtIdx) < 2 {
 		return false, ArrayNotationInvalid
 	}
+	if notation := GetArrayNotation(pathAtIdx[1]); notation != ArrayNotationInvalid {
+		return true, notation
+	}
 
-	notation := GetArrayNotation(pathAtIdx[1])
-	isArray := notation != ArrayNotationInvalid
-
-	return isArray, notation
+	// Not an array
+	return false, ArrayNotationInvalid
 }
 
 // GetArrayNotation returns the notation type of an array index notation value

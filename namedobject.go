@@ -476,12 +476,15 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 	_, err := obj.Walk(path, WalkArgs{
 		MatchFunc: func(v interface{}, p Path) bool {
 			validPath = p
-			fmt.Println(p)
+			// Allow "append on existing array" case
+			if GetArrayNotation(path[len(path)-1]) == ArrayNotationTraversal &&
+				GetArrayNotation(validPath[len(validPath)-1]) == ArrayNotationIndex {
+				validPath[len(validPath)-1] = "-"
+			}
 			return true
 		},
 		NotFoundFunc: func(p Path) {
 			validPath = p
-			fmt.Println(p)
 		},
 	})
 
@@ -495,54 +498,89 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 		return validPath, value, nil
 	}
 
-	// We should get isNotFound. Otherwise return the error
+	// We should get ErrIsNotFound. Otherwise return the error
 	if _, isNotFound := err.(ErrNotFound); !isNotFound {
 		return validPath, value, err
 	}
 
-	var (
-		parentNode    interface{}
-		extendedValue interface{}
-	)
+	firstIdx := len(validPath)
 
-	addToParent := func(node interface{}, idx int) {
+	// Generate the first node to attach the remaining hierarchy to
+	var parentNode interface{}
+	_, rootArrayNotation := path.IsArray(len(validPath) - 1)
+	switch rootArrayNotation {
+	case ArrayNotationInvalid:
+		parentNode = map[string]interface{}{}
+
+	case ArrayNotationTraversal:
+		// If the array field does not exist, the traversal notation is missing and
+		// we need to create an array is first node.
+		if path[firstIdx] == "-" {
+			parentNode = make([]interface{}, 1)
+			firstIdx++
+		}
+
+	case ArrayNotationIndex:
+		return validPath, value, ErrIndexNotation("")
+	}
+
+	fmt.Println("Processing", path[firstIdx:])
+
+	extendedValue := parentNode
+
+	// Helper function to add the current node to the parent node
+	addToParent := func(key string, node interface{}) {
 		switch parent := parentNode.(type) {
 		case []interface{}:
-			parent[0] = node
-		case map[string]interface{}:
-			key := path[idx]
-			parent[key] = node
-		case nil:
-			key := path[idx]
-			if GetArrayNotation(key) == ArrayNotationInvalid {
-				extendedValue = map[string]interface{}{
-					key: node,
-				}
+			if key == "-" {
+				parent[0] = node
 			} else {
-				// Array-in-array case
-				extendedValue = []interface{}{node}
+				parent[0] = map[string]interface{}{key: node}
+			}
+
+		case map[string]interface{}:
+			parent[key] = node
+
+		case nil:
+			// Case: root is an existing array
+			if key == "-" {
+				extendedValue = []interface{}{node} // TODO: testcase root array-in-array
+			} else {
+				extendedValue = map[string]interface{}{key: node}
 			}
 		}
 	}
 
 	// Iterate but skip last key. This key will hold the value.
-	for idx := len(validPath); idx < len(path)-1; idx++ {
-		var newNode interface{}
-		if isArray, arrayNotation := path.IsArray(idx); !isArray {
-			newNode = make(map[string]interface{})
-		} else {
-			if arrayNotation != ArrayNotationTraversal {
-				return validPath, value, ErrNotTraversable("Cannot create indexed array")
-			}
-			newNode = make([]interface{}, 1)
-			idx++ // skip array notation
-		}
+	for idx := firstIdx; idx < len(path)-1; idx++ {
+		key := path[idx]
+		_, arrayNotation := path.IsArray(idx)
+		fmt.Println(key)
 
-		addToParent(newNode, idx)
-		parentNode = newNode
+		switch arrayNotation {
+		case ArrayNotationInvalid:
+			fmt.Println("is a map")
+			newNode := make(map[string]interface{})
+			addToParent(key, newNode)
+			parentNode = newNode
+
+		case ArrayNotationTraversal:
+			fmt.Println("is an array")
+			newNode := make([]interface{}, 1)
+			addToParent(key, newNode)
+			parentNode = newNode
+			if key != "-" {
+				idx++ // skip array notation
+			}
+
+		case ArrayNotationIndex:
+			return validPath, value, ErrIndexNotation("")
+		}
 	}
 
-	addToParent(value, len(path)-1)
+	key := path[len(path)-1]
+	addToParent(key, value)
+
 	return validPath, extendedValue, nil
 }
 

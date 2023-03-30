@@ -176,7 +176,8 @@ const (
 		"arrayInArray": [
 			["a", "b"],
 			["c", "d"]
-		]
+		],
+		"emptyArray": []
 	}`
 )
 
@@ -494,31 +495,31 @@ func TestGeneratePatch(t *testing.T) {
 		value interface{}
 	)
 
-	// // Complete path does not exist
-	// path, value, err = obj.GeneratePatch(Path{"metadata", "field"}, "newValue")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"metadata"}, path)
-	// assert.Equal(t, map[string]interface{}{
-	// 	"field": "newValue",
-	// }, value)
+	// Complete path does not exist
+	path, value, err = obj.GeneratePatch(Path{"metadata", "field"}, "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"metadata"}, path)
+	assert.Equal(t, map[string]interface{}{
+		"field": "newValue",
+	}, value)
 
-	// // Root level element does not exist
-	// path, value, err = obj.GeneratePatch(Path{"kind"}, "test")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"kind"}, path)
-	// assert.Equal(t, "test", value)
+	// Root level element does not exist
+	path, value, err = obj.GeneratePatch(Path{"kind"}, "test")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"kind"}, path)
+	assert.Equal(t, "test", value)
 
-	// // Last key does not exist
-	// path, value, err = obj.GeneratePatch(Path{"obj", "test"}, "value")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"obj", "test"}, path)
-	// assert.Equal(t, "value", value)
+	// Last key does not exist
+	path, value, err = obj.GeneratePatch(Path{"obj", "test"}, "value")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"obj", "test"}, path)
+	assert.Equal(t, "value", value)
 
-	// // Last key array does not exist
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.test[]"), "value")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"a", "test"}, path)
-	// assert.Equal(t, []interface{}{"value"}, value)
+	// Last key array does not exist
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.test[]"), "value")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"a", "test"}, path)
+	assert.Equal(t, []interface{}{"value"}, value)
 
 	// Append to array
 	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array[]"), "c")
@@ -526,54 +527,88 @@ func TestGeneratePatch(t *testing.T) {
 	assert.Equal(t, Path{"a", "obj", "array", "-"}, path)
 	assert.Equal(t, "c", value)
 
-	// // Array requested, map found
-	// // Should yield an error as array traversal indicator cannot be used
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[].value"), "value")
-	// assert.NotNil(t, err)
+	// Array requested, map found
+	// Should yield an error as array traversal indicator cannot be used
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[].value"), "value")
+	assert.NotNil(t, err)
 
-	// // Array requested, map found
-	// // Should yield an error as array traversal indicator cannot be used
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[]"), "value")
-	// assert.NotNil(t, err)
+	// Array requested, map found
+	// Should yield an error as array traversal indicator cannot be used
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[]"), "value")
+	assert.NotNil(t, err)
 
-	// // Map requested, array found
-	// // Should yield an error as array traversal indicator is missing
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array.key"), "value")
-	// assert.NotNil(t, err)
+	// Map requested, array found
+	// Should yield an error as array traversal indicator is missing
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array.key"), "value")
+	assert.NotNil(t, err)
 
-	// // Array overwrite
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array"), "value")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"a", "obj", "array"}, path)
-	// assert.Equal(t, "value", value)
+	// Array overwrite
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array"), "value")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"a", "obj", "array"}, path)
+	assert.Equal(t, "value", value)
 
-	// // Key does not exist in existing, nested object
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("array[].obj.test"), "newValue")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"array", "-"}, path)
-	// assert.Equal(t, map[string]interface{}{
-	// 	"obj": map[string]interface{}{
-	// 		"test": "newValue",
-	// 	},
-	// }, value)
+	// Key does not exist in existing, nested object
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("array[].obj.test"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"array", "-"}, path)
+	assert.Equal(t, map[string]interface{}{
+		"obj": map[string]interface{}{
+			"test": "newValue",
+		},
+	}, value)
 
-	// // Array-object-array
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.array[].array[0]"), "newValue")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"a", "array", "0", "array", "0"}, path)
-	// assert.Equal(t, "newValue", value)
+	// Array - object - array
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.array[].array[0]"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"a", "array", "0", "array", "0"}, path)
+	assert.Equal(t, "newValue", value)
 
-	// Array-array
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("arrayInArray[][0]"), "newValue")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"arrayInArray", "0", "0"}, path)
-	// assert.Equal(t, "newValue", value)
+	// Array - array index
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("arrayInArray[][0]"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"arrayInArray", "0", "0"}, path)
+	assert.Equal(t, "newValue", value)
 
-	// // Key exists in exsiting, nested object
-	// path, value, err = obj.GeneratePatch(NewPathFromJQFormat("array[].obj.value"), "newValue")
-	// assert.NoError(t, err)
-	// assert.Equal(t, Path{"array", "0", "obj", "value"}, path)
-	// assert.Equal(t, "newValue", value)
+	// Array - array append
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("emptyArray[][]"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"emptyArray", "-"}, path)
+	assert.Equal(t, []interface{}{"newValue"}, value)
+
+	// New Array - array
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("newArray[][]"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"newArray"}, path)
+	assert.Equal(t, []interface{}{[]interface{}{"newValue"}}, value)
+
+	// Key exists in exsiting, nested object
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("array[].obj.value"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"array", "0", "obj", "value"}, path)
+	assert.Equal(t, "newValue", value)
+
+	// Create new array in new object
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.newObj.newArray[].key"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"a", "newObj"}, path)
+	assert.Equal(t, map[string]interface{}{
+		"newArray": []interface{}{
+			map[string]interface{}{
+				"key": "newValue",
+			},
+		},
+	}, value)
+
+	// Create new array
+	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.newArray[].key"), "newValue")
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"a", "newArray"}, path)
+	assert.Equal(t, []interface{}{
+		map[string]interface{}{
+			"key": "newValue",
+		},
+	}, value)
 }
 
 /*

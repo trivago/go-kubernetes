@@ -37,3 +37,9 @@ type ErrIncorrectType string
 func (e ErrIncorrectType) Error() string {
 	return fmt.Sprintf("Incoorect type: %s", string(e))
 }
+
+type ErrIndexNotation string
+
+func (e ErrIndexNotation) Error() string {
+	return fmt.Sprintf("Cannot append to array using index notation")
+}
