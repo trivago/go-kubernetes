@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -251,7 +252,6 @@ func TestAnnotations(t *testing.T) {
 	assert.Equal(t, "shiny", n)
 }
 
-/*
 func TestLabels(t *testing.T) {
 	json := runtime.RawExtension{
 		Raw: []byte(configMapJSON),
@@ -261,8 +261,8 @@ func TestLabels(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, obj.HasLabels())
 
-	a, aOk := obj.GetLabel("foo")
-	assert.True(t, aOk)
+	a, err := obj.GetLabel("foo")
+	assert.NoError(t, err)
 	assert.Equal(t, "bar", a)
 
 	assert.True(t, obj.IsLabelSetTo("foo", "bar"))
@@ -275,8 +275,8 @@ func TestLabels(t *testing.T) {
 	assert.True(t, obj.IsLabelNotSetTo("foo", "foo"))
 	assert.True(t, obj.IsLabelNotSetTo("bar", "-"))
 
-	b, bOk := obj.GetLabel("foo/esc")
-	assert.True(t, bOk)
+	b, err := obj.GetLabel("foo/esc")
+	assert.NoError(t, err)
 	assert.Equal(t, "escaped", b)
 }
 
@@ -289,59 +289,164 @@ func TestRemoveManagedFields(t *testing.T) {
 	assert.NoError(t, err)
 	obj.RemoveManagedFields()
 
-	assert.False(t, obj.Has([]string{"metadata"}, "resourceVersion"))
-	assert.False(t, obj.Has([]string{"metadata"}, "uid"))
+	assert.False(t, obj.Has(Path{"metadata", "resourceVersion"}))
+	assert.False(t, obj.Has(Path{"metadata", "uid"}))
 }
 
 func TestSet(t *testing.T) {
-	json := runtime.RawExtension{
-		Raw: []byte(configMapJSON),
-	}
+	obj := NewNamedObject("test")
 
-	obj, err := NamedObjectFromRaw(&json)
+	var (
+		value interface{}
+		err   error
+	)
+
+	// Create top-level field
+	err = obj.Set(NewPathFromJQFormat("testRoot"), "newValue")
 	assert.NoError(t, err)
-	obj.RemoveManagedFields()
+	value, err = obj.GetString(NewPathFromJQFormat("testRoot"))
+	assert.NoError(t, err)
+	assert.Equal(t, "newValue", value)
 
-	typeMismatchOk := obj.Set([]string{"data", "dashboard.json"}, "sub", "{}")
-	assert.False(t, typeMismatchOk)
+	// Change top-level field
+	err = obj.Set(NewPathFromJQFormat("testRoot"), "changed")
+	assert.NoError(t, err)
+	value, err = obj.GetString(NewPathFromJQFormat("testRoot"))
+	assert.NoError(t, err)
+	assert.Equal(t, "changed", value)
 
-	// Create field
-	setOk := obj.Set([]string{"spec", "data"}, "test.json", "{}")
-	assert.True(t, setOk)
+	// Create top-level array
+	err = obj.Set(NewPathFromJQFormat("testRootArray[]"), "newValue")
+	assert.NoError(t, err)
+	value, err = obj.GetString(NewPathFromJQFormat("testRootArray[]"))
+	assert.NoError(t, err)
+	assert.Equal(t, "newValue", value)
 
-	field, fieldOk := obj.GetString([]string{"spec", "data"}, "test.json")
-	assert.True(t, fieldOk)
-	assert.Equal(t, "{}", field)
+	// Change top-level array
+	err = obj.Set(NewPathFromJQFormat("testRootArray[0]"), "changed")
+	assert.NoError(t, err)
+	value, err = obj.GetString(NewPathFromJQFormat("testRootArray[0]"))
+	assert.NoError(t, err)
+	assert.Equal(t, "changed", value)
 
-	// Change array
-	setOk = obj.Set([]string{"array[1]"}, "search", "3")
-	assert.True(t, setOk)
+	// Append to top-level array
+	err = obj.Set(NewPathFromJQFormat("testRootArray[]"), "append")
+	assert.NoError(t, err)
+	value, err = obj.GetString(NewPathFromJQFormat("testRootArray[1]"))
+	assert.NoError(t, err)
+	assert.Equal(t, "append", value)
 
-	field, fieldOk = obj.GetString([]string{"array[1]"}, "search")
-	assert.True(t, fieldOk)
-	assert.Equal(t, "3", field)
+	fmt.Println(obj.ToJSON())
 
-	// Bulk change array
-	setOk = obj.Set([]string{"array[]"}, "search", "4")
-	assert.True(t, setOk)
+	// // Create new section
+	// err = obj.Set(NewPathFromJQFormat("new1.test"), "newValue")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new1.test"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "newValue", value)
 
-	field, fieldOk = obj.GetString([]string{"array[0]"}, "search")
-	assert.True(t, fieldOk)
-	assert.Equal(t, "4", field)
+	// // Create new field in existing section
+	// err = obj.Set(NewPathFromJQFormat("new1.test2"), "newValue")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new1.test2"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "newValue", value)
 
-	field, fieldOk = obj.GetString([]string{"array[1]"}, "search")
-	assert.True(t, fieldOk)
-	assert.Equal(t, "4", field)
+	// // Change field in existing section
+	// err = obj.Set(NewPathFromJQFormat("new1.test2"), "changed")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new1.test2"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "changed", value)
 
-	// Create annotation
-	obj.SetAnnotation("test", "test")
+	// // Create new array in existing section
+	// err = obj.Set(NewPathFromJQFormat("new1.test3[]"), "newValue")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new1.test3[]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "newValue", value)
 
-	a, aOk := obj.GetAnnotation("test")
-	assert.True(t, obj.Has([]string{"metadata", "annotations"}, "test"))
-	assert.True(t, aOk)
-	assert.Equal(t, "test", a)
+	// // Change array in existing section
+	// err = obj.Set(NewPathFromJQFormat("new1.test3[0]"), "changed")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new1.test3[0]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "changed", value)
+
+	// // Append to array in existing section
+	// err = obj.Set(NewPathFromJQFormat("new1.test3[]"), "append")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new1.test3[1]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "append", value)
+
+	// // Create new hierachy
+	// err = obj.Set(NewPathFromJQFormat("new2.test.test"), "newValue")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new2.test.test"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "newValue", value)
+
+	// // Create new array hiearchy
+	// err = obj.Set(NewPathFromJQFormat("newArray[].newArray[].newArray[]"), "newValue")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("newArray[].newArray[].newArray[]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "newValue", value)
+	// value, err = obj.Get(NewPathFromJQFormat("newArray[].newArray[]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, map[string]interface{}{
+	// 	"newArray": []interface{}{"newValue"},
+	// }, value)
+
+	// // Create new multi-array
+	// err = obj.Set(NewPathFromJQFormat("new3[][]"), "newValue")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new3[][]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "newValue", value)
+
+	// // change new multi-array
+	// err = obj.Set(NewPathFromJQFormat("new3[0][0]"), "changed")
+	// assert.NoError(t, err)
+	// value, err = obj.GetString(NewPathFromJQFormat("new3[0][0]"))
+	// assert.NoError(t, err)
+	// assert.Equal(t, "changed", value)
+
+	// expectedJson := `{
+	// 	"metadata": {
+	// 		"name":"test"
+	// 	},
+	// 	"testRoot":"changed",
+	// 	"testRootArray":["changed","append"],
+	// 	"new1":{
+	// 		"test":"newValue",
+	// 		"test2":"changed",
+	// 		"test3":["changed","append"]
+	// 	},
+	// 	"new2":{
+	// 		"test":{
+	// 			"test":"newValue"
+	// 		}
+	// 	},
+	// 	"new3":[["changed"]],
+	// 	"newArray":[{
+	// 		"newArray":[{
+	// 			"newArray":["newValue"]
+	// 		}]
+	// 	}]
+	// }`
+
+	// json := runtime.RawExtension{
+	// 	Raw: []byte(expectedJson),
+	// }
+
+	// expectedObj, err := NamedObjectFromRaw(&json)
+	// assert.NoError(t, err)
+	// assert.Equal(t, expectedObj, obj)
 }
 
+/*
 func TestGet(t *testing.T) {
 	json := runtime.RawExtension{
 		Raw: []byte(configMapJSON),

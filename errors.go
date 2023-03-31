@@ -35,7 +35,7 @@ func (e ErrNotKeyValue) Error() string {
 type ErrIncorrectType string
 
 func (e ErrIncorrectType) Error() string {
-	return fmt.Sprintf("Incoorect type: %s", string(e))
+	return fmt.Sprintf("Incorrect type: %s", string(e))
 }
 
 type ErrIndexNotation string
