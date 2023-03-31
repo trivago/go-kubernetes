@@ -476,15 +476,18 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 	_, err := obj.Walk(path, WalkArgs{
 		MatchFunc: func(v interface{}, p Path) bool {
 			validPath = p
-			// Allow "append on existing array" case
-			if GetArrayNotation(path[len(path)-1]) == ArrayNotationTraversal &&
-				GetArrayNotation(validPath[len(validPath)-1]) == ArrayNotationIndex {
+			if GetArrayNotation(path[len(path)-1]) == ArrayNotationTraversal {
+				// Traversal notation will be converted to index notation on match.
+				// We need to keep the notation here in case we have an "append"
+				// requested.
 				validPath[len(validPath)-1] = "-"
 			}
+			fmt.Println("match:", validPath)
 			return true
 		},
 		NotFoundFunc: func(p Path) {
 			validPath = p
+			fmt.Println("not found:", p)
 		},
 	})
 
@@ -524,6 +527,7 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 		return validPath, value, ErrIndexNotation("")
 	}
 
+	fmt.Println("Existing", validPath)
 	fmt.Println("Processing", path[firstIdx:])
 
 	extendedValue := parentNode
@@ -552,17 +556,21 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 	}
 
 	// Iterate but skip last key. This key will hold the value.
-	for idx := firstIdx; idx < len(path)-1; idx++ {
+	for idx := firstIdx; idx < len(path); idx++ {
 		key := path[idx]
 		_, arrayNotation := path.IsArray(idx)
 		fmt.Println(key)
 
 		switch arrayNotation {
 		case ArrayNotationInvalid:
-			fmt.Println("is a map")
-			newNode := make(map[string]interface{})
-			addToParent(key, newNode)
-			parentNode = newNode
+			// For the last element, skip map creation, as we will add "value" using
+			// "key" after this loop
+			if idx < len(path)-1 {
+				fmt.Println("is a map")
+				newNode := make(map[string]interface{})
+				addToParent(key, newNode)
+				parentNode = newNode
+			}
 
 		case ArrayNotationTraversal:
 			fmt.Println("is an array")
@@ -590,9 +598,13 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 	// Internal helper function to react on "not found"
 	errNotFound := func(key string) (interface{}, error) {
 		if args.NotFoundFunc != nil {
-			args.NotFoundFunc(append(args.walkedPath, key))
+			walked := args.walkedPath
+			if len(key) > 0 {
+				walked = append(walked, key)
+			}
+			args.NotFoundFunc(walked)
 		}
-		return nil, ErrNotFound(path[0])
+		return nil, ErrNotFound(key)
 	}
 
 	// If the path is empty we found the value.
@@ -638,7 +650,9 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 		}
 
 		if args.MatchFunc != nil {
-			args.MatchFunc(value, args.walkedPath)
+			if !args.MatchFunc(value, args.walkedPath) {
+				return errNotFound("")
+			}
 		}
 
 		return value, nil
@@ -686,9 +700,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			if idx >= int64(len(array)) {
 				return errNotFound(arrayIdx)
 			}
-			return walk(array[idx], path[1:], args.push(node, arrayIdx, func(p interface{}) {
-				args.onParentChange(p)
-			}))
+			return walk(array[idx], path[1:], args.push(node, arrayIdx, func(p interface{}) { args.onParentChange(p) }))
 
 		case ArrayNotationTraversal:
 			if !args.MatchAll {
