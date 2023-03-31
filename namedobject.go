@@ -142,6 +142,7 @@ func (obj NamedObject) Get(path Path) (interface{}, error) {
 // return false.
 func (obj NamedObject) Set(path Path, value interface{}) error {
 	setValue := func(interface{}) interface{} {
+		fmt.Println("set")
 		return value
 	}
 
@@ -174,7 +175,7 @@ func (obj NamedObject) Delete(path Path) error {
 // Has will return true if a key on a given path is set.
 func (obj NamedObject) Has(path Path) bool {
 	_, err := obj.Walk(path, WalkArgs{})
-	return err != nil
+	return err == nil
 }
 
 // GetString will return a string value assigned to a given key on a given path.
@@ -482,12 +483,10 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 				// requested.
 				validPath[len(validPath)-1] = "-"
 			}
-			fmt.Println("match:", validPath)
 			return true
 		},
 		NotFoundFunc: func(p Path) {
 			validPath = p
-			fmt.Println("not found:", p)
 		},
 	})
 
@@ -527,9 +526,6 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 		return validPath, value, ErrIndexNotation("")
 	}
 
-	fmt.Println("Existing", validPath)
-	fmt.Println("Processing", path[firstIdx:])
-
 	extendedValue := parentNode
 
 	// Helper function to add the current node to the parent node
@@ -559,21 +555,18 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 	for idx := firstIdx; idx < len(path); idx++ {
 		key := path[idx]
 		_, arrayNotation := path.IsArray(idx)
-		fmt.Println(key)
 
 		switch arrayNotation {
 		case ArrayNotationInvalid:
 			// For the last element, skip map creation, as we will add "value" using
 			// "key" after this loop
 			if idx < len(path)-1 {
-				fmt.Println("is a map")
 				newNode := make(map[string]interface{})
 				addToParent(key, newNode)
 				parentNode = newNode
 			}
 
 		case ArrayNotationTraversal:
-			fmt.Println("is an array")
 			newNode := make([]interface{}, 1)
 			addToParent(key, newNode)
 			parentNode = newNode
@@ -609,44 +602,9 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 
 	// If the path is empty we found the value.
 	if len(path) == 0 {
-		value := node
-		if args.MutateFunc != nil {
-			value = args.MutateFunc(value)
-
-			// Modify the hierarchy. This requires modification of the parent node
-			// This is either an array or a map. As we are working on a copy of the
-			// "header data", we need to propagate the changes back.
-			switch reflect.ValueOf(args.parent).Kind() {
-			case reflect.Map:
-				// TODO: This fails if a NamedObject is passed into this function
-				parent, ok := args.parent.(map[string]interface{})
-				if !ok {
-					return nil, ErrNotTraversable("parent is not a map")
-				}
-				if value == nil {
-					delete(parent, args.getNodeKey())
-				} else {
-					parent[args.getNodeKey()] = value
-				}
-				args.onParentChange(parent)
-
-			case reflect.Array, reflect.Slice:
-				parent, ok := args.parent.([]interface{})
-				if !ok {
-					return nil, ErrNotTraversable("parent is not a slice")
-				}
-				idx, _ := strconv.ParseInt(args.getNodeKey(), 10, 32)
-
-				if value == nil {
-					parent = append(parent[:idx], parent[idx+1:]...)
-				} else {
-					parent[idx] = value
-				}
-				args.onParentChange(parent)
-
-			default:
-				// nil value, no change required
-			}
+		value, err := args.onMutate(node)
+		if err != nil {
+			return nil, err
 		}
 
 		if args.MatchFunc != nil {
@@ -667,32 +625,40 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 	// There's at least one more traversal step, i.e. len(path) >= 1.
 
 	switch reflect.ValueOf(node).Kind() {
+	// Node is a map
 	case reflect.Map:
 		object, ok := node.(map[string]interface{})
 		if !ok {
 			return nil, ErrNotTraversable(args.getNodeKey() + " is not a map")
 		}
-		if GetArrayNotation(path[0]) != ArrayNotationInvalid {
+
+		key := path[0]
+		if GetArrayNotation(key) != ArrayNotationInvalid {
 			return nil, ErrNotAnArray(args.getNodeKey())
 		}
-		nextNode, exists := object[path[0]]
+		nextNode, exists := object[key]
 		if !exists {
-			return errNotFound(path[0])
+			if len(path) == 1 && args.MutateFunc != nil {
+				pseudoArgs := args.push(node, key, nil)
+				return pseudoArgs.onMutate(nil)
+			}
+			return errNotFound(key)
 		}
-		return walk(nextNode, path[1:], args.push(node, path[0], func(p interface{}) {
-			object[path[0]] = p
+		return walk(nextNode, path[1:], args.push(node, key, func(p interface{}) {
+			object[args.getNodeKey()] = p
 		}))
 
+	// Node is an array
 	case reflect.Array, reflect.Slice:
 		array, ok := node.([]interface{})
 		if !ok {
 			return nil, ErrNotTraversable(args.getNodeKey() + " is not a slice")
 		}
 
-		switch GetArrayNotation(path[0]) {
+		arrayIdx := path[0]
+		switch GetArrayNotation(arrayIdx) {
+		// Explicit index
 		case ArrayNotationIndex:
-			// Explicit index traversal
-			arrayIdx := path[0]
 			idx, err := strconv.ParseInt(arrayIdx, 10, 32)
 			if err != nil {
 				return nil, err
@@ -700,11 +666,14 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			if idx >= int64(len(array)) {
 				return errNotFound(arrayIdx)
 			}
-			return walk(array[idx], path[1:], args.push(node, arrayIdx, func(p interface{}) { args.onParentChange(p) }))
+			return walk(array[idx], path[1:], args.push(node, arrayIdx, func(p interface{}) {
+				args.onParentChange(p)
+			}))
 
+		// Traverse array
 		case ArrayNotationTraversal:
+			// Look for the first match only
 			if !args.MatchAll {
-				// Look for the first match only
 				for idx, child := range array {
 					idxStr := strconv.Itoa(idx)
 					v, err := walk(child, path[1:], args.push(node, idxStr, func(p interface{}) {
@@ -738,6 +707,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			}
 			return values, nil
 
+		// Array is missing traversal indicator
 		default:
 			return nil, ErrMissingArrayTraversal(args.getNodeKey())
 		}
@@ -758,6 +728,14 @@ func (src WalkArgs) push(currentNode interface{}, currentKey string, onParentCha
 	return args
 }
 
+// getNodeKey returns the name of the current key
+func (args WalkArgs) getNodeKey() string {
+	if len(args.walkedPath) == 0 {
+		return ""
+	}
+	return args.walkedPath[len(args.walkedPath)-1]
+}
+
 // onParentChange is a wrapper around onParentChangeFunc to avoid nil calls
 func (args WalkArgs) onParentChange(p interface{}) {
 	if args.onParentChangeFunc != nil {
@@ -765,10 +743,50 @@ func (args WalkArgs) onParentChange(p interface{}) {
 	}
 }
 
-// getNodeKey returns the name of the current key
-func (args WalkArgs) getNodeKey() string {
-	if len(args.walkedPath) == 0 {
-		return ""
+// onMutate is a wrapper around MutateFunc, reacting correctly on changed values
+// and adding them to the hierarchy
+func (args WalkArgs) onMutate(value interface{}) (interface{}, error) {
+	if args.MutateFunc == nil {
+		return value, nil
 	}
-	return args.walkedPath[len(args.walkedPath)-1]
+
+	key := args.getNodeKey()
+	value = args.MutateFunc(value)
+
+	// Modify the hierarchy. This requires modification of the parent node
+	// This is either an array or a map. As we are working on a copy of the
+	// "header data", we need to propagate the changes back.
+	switch reflect.ValueOf(args.parent).Kind() {
+	case reflect.Map:
+		// TODO: This fails if a NamedObject is passed into this function
+		parent, ok := args.parent.(map[string]interface{})
+		if !ok {
+			return nil, ErrNotTraversable("parent is not a map")
+		}
+		if value == nil {
+			delete(parent, key)
+		} else {
+			parent[key] = value
+		}
+		args.onParentChange(parent)
+
+	case reflect.Array, reflect.Slice:
+		parent, ok := args.parent.([]interface{})
+		if !ok {
+			return nil, ErrNotTraversable("parent is not a slice")
+		}
+		idx, _ := strconv.ParseInt(key, 10, 32)
+
+		if value == nil {
+			parent = append(parent[:idx], parent[idx+1:]...)
+		} else {
+			parent[idx] = value
+		}
+		args.onParentChange(parent)
+
+	default:
+		// nil value, no change required
+	}
+
+	return value, nil
 }
