@@ -23,20 +23,32 @@ type WalkArgs struct {
 	// not found,
 	NotFoundFunc func(p Path)
 
-	walkedPath   Path
-	parent       interface{}
-	previousArgs *WalkArgs
+	appendOnMutate bool
+	walkedPath     Path
+	parent         interface{}
+	previousArgs   *WalkArgs
 }
 
 // push creates a new args argument for the next recursion level.
 // currentNode expects the node currently processed
 // currentKey expects the key of the currently processed node
 // onResetSelf is a function called if the contents of currentNode changed
-func (src *WalkArgs) push(currentNode interface{}, currentKey string) WalkArgs {
+func (src *WalkArgs) push(currentKey string, currentNode interface{}) WalkArgs {
 	args := *src
 	args.walkedPath = NewPath(src.walkedPath, currentKey)
 	args.parent = currentNode
 	args.previousArgs = src
+	args.appendOnMutate = false
+	return args
+}
+
+// pushTraversal calls push, but sets a flag so that any change will be appended
+// and not overwrite. This function is used on arrays with traversal notation,
+// as the key will always be a numeric index, hence discarding the "traversl"
+// information.
+func (src *WalkArgs) pushTraversal(currentKey string, currentNode interface{}) WalkArgs {
+	args := src.push(currentKey, currentNode)
+	args.appendOnMutate = true
 	return args
 }
 
@@ -106,6 +118,8 @@ func (args WalkArgs) onMutate(value interface{}) (interface{}, error) {
 
 		if value == nil {
 			parent = append(parent[:idx], parent[idx+1:]...)
+		} else if args.appendOnMutate {
+			parent = append(parent, value)
 		} else {
 			parent[idx] = value
 		}

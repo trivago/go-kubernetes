@@ -130,7 +130,6 @@ func (obj NamedObject) Set(path Path, value interface{}) error {
 	}
 
 	_, err := obj.Walk(p, WalkArgs{
-		MatchAll:   true,
 		MutateFunc: setValue,
 	})
 
@@ -149,7 +148,6 @@ func (obj NamedObject) Delete(path Path) error {
 	}
 
 	_, err := obj.Walk(path, WalkArgs{
-		MatchAll:   true,
 		MutateFunc: deleteKey,
 	})
 	return err
@@ -624,13 +622,14 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 		nextNode, exists := object[key]
 		if !exists {
 			if len(path) == 1 && args.MutateFunc != nil {
-				pseudoArgs := args.push(node, key)
+				// Make sure non-existing keys are created
+				pseudoArgs := args.push(key, node)
 				return pseudoArgs.onMutate(nil)
 			}
 			return errNotFound(key)
 		}
 
-		return walk(nextNode, path[1:], args.push(node, key))
+		return walk(nextNode, path[1:], args.push(key, node))
 
 	// Node is an array
 	case reflect.Array, reflect.Slice:
@@ -650,7 +649,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			if idx >= int64(len(array)) {
 				return errNotFound(arrayIdx)
 			}
-			return walk(array[idx], path[1:], args.push(node, arrayIdx))
+			return walk(array[idx], path[1:], args.push(arrayIdx, node))
 
 		// Traverse array
 		case ArrayNotationTraversal:
@@ -658,7 +657,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			if !args.MatchAll {
 				for idx, child := range array {
 					idxStr := strconv.Itoa(idx)
-					v, err := walk(child, path[1:], args.push(node, idxStr))
+					v, err := walk(child, path[1:], args.pushTraversal(idxStr, node))
 					if err == nil {
 						return v, nil
 					}
@@ -670,7 +669,7 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 			values := []interface{}{}
 			for idx, child := range array {
 				idxStr := strconv.Itoa(idx)
-				v, err := walk(child, path[1:], args.push(node, idxStr))
+				v, err := walk(child, path[1:], args.pushTraversal(idxStr, node))
 				if err == nil {
 					values = append(values, v)
 				}
