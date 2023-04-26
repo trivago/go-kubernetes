@@ -1,12 +1,5 @@
 # Changelog
 
-## [2.0.1](https://github.com/trivago/go-kubernetes/compare/v2.0.0...v2.0.1) (2023-04-26)
-
-
-### Bug Fixes
-
-* update go module ([45c5a38](https://github.com/trivago/go-kubernetes/commit/45c5a385a30a1a803329460230ec8bbd8c3327da))
-
 ## [2.0.0](https://github.com/trivago/go-kubernetes/compare/v1.0.0...v2.0.0) (2023-04-26)
 
 
