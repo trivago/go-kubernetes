@@ -559,7 +559,6 @@ func TestComplexHash(t *testing.T) {
 	assert.Equal(t, "iuFW+tRydu8=", hashStr)
 }
 
-/*
 func TestHashChanges(t *testing.T) {
 	obj := NamedObject(make(map[string]interface{}))
 
@@ -593,7 +592,6 @@ func TestHashChanges(t *testing.T) {
 	assert.Equal(t, hash4, hash6)
 }
 
-
 func TestPodFixPatchPath(t *testing.T) {
 	json := runtime.RawExtension{
 		Raw: []byte(podJSON),
@@ -602,12 +600,7 @@ func TestPodFixPatchPath(t *testing.T) {
 	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
-	var (
-		path  []string
-		value interface{}
-	)
-
-	newOptionalNodeAffinityPath := []string{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution[]"}
+	newOptionalNodeAffinityPath := Path{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution", "-"}
 	affinityPatch := map[string]interface{}{
 		"weight": 100,
 		"preference": map[string]interface{}{
@@ -623,8 +616,9 @@ func TestPodFixPatchPath(t *testing.T) {
 		},
 	}
 
-	path, value = obj.FixPatchPath(newOptionalNodeAffinityPath, affinityPatch)
-	assert.Equal(t, []string{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution"}, path)
+	path, value, err := obj.GeneratePatch(newOptionalNodeAffinityPath, affinityPatch)
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution"}, path)
 	assert.Equal(t, []interface{}{affinityPatch}, value)
 }
 
@@ -657,10 +651,10 @@ func TestPodCases(t *testing.T) {
 		},
 	}
 
-	patchPath, _ := obj.FixPatchPath([]string{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution[]"}, affinityPatch)
-	assert.Equal(t, []string{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution"}, patchPath)
+	patchPath, _, err := obj.GeneratePatch(Path{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution", "-"}, affinityPatch)
+	assert.NoError(t, err)
+	assert.Equal(t, Path{"spec", "affinity", "nodeAffinity", "preferredDuringSchedulingIgnoredDuringExecution"}, patchPath)
 }
-*/
 
 func TestWalk(t *testing.T) {
 	json := runtime.RawExtension{
