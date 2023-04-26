@@ -1,4 +1,4 @@
-module trivago.com/go-kubernetes
+module github.com/trivago/go-kubernetes
 
 go 1.20
 
