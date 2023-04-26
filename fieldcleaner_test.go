@@ -40,9 +40,9 @@ func TestFieldCleaner(t *testing.T) {
 
 	ManagedFields.Clean(obj)
 
-	assert.False(t, obj.Has([]string{"metadata"}, "uid"))
-	assert.False(t, obj.Has([]string{"metadata"}, "resourceVersion"))
-	assert.False(t, obj.Has([]string{"metadata"}, "creationTimestamp"))
-	assert.False(t, obj.Has([]string{"spec", "finalizers"}, "resourceVersion"))
-	assert.False(t, obj.Has([]string{}, "status"))
+	assert.False(t, obj.Has(NewPath(PathMetadata, "uid")))
+	assert.False(t, obj.Has(NewPath(PathMetadata, "resourceVersion")))
+	assert.False(t, obj.Has(NewPath(PathMetadata, "creationTimestamp")))
+	assert.False(t, obj.Has(NewPath(PathSpec, "finalizers", "resourceVersion")))
+	assert.False(t, obj.Has(Path{"status"}))
 }
