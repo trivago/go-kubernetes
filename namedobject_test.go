@@ -76,9 +76,9 @@ const (
 			"obj" : {
 				"value": "value",
 				"emptyArray": [],
-				"array": ["a", "b"],
+				"array": ["a", "b", "c"],
 				"arrayInArray": [
-					["a", "b"],
+					["a", "b", "c"],
 					["c", "d"]
 				]
 			},
@@ -86,16 +86,16 @@ const (
 				{
 					"value": "value",
 					"emptyArray": [],
-					"array": ["a", "b"],
+					"array": ["a", "b", "c"],
 					"arrayInArray": [
-						["a", "b"],
+						["a", "b", "c"],
 						["c", "d"]
 					], "obj" : {
 						"value": "value",
 						"emptyArray": [],
-						"array": ["a", "b"],
+						"array": ["a", "b", "c"],
 						"arrayInArray": [
-							["a", "b"],
+							["a", "b", "c"],
 							["c", "d"]
 						]
 					}
@@ -111,9 +111,9 @@ const (
 					"obj" : {
 						"value": "value",
 						"emptyArray": [],
-						"array": ["a", "b"],
+						"array": ["a", "b", "c"],
 						"arrayInArray": [
-							["a", "b"],
+							["a", "b", "c"],
 							["c", "d"]
 						]
 					}
@@ -123,17 +123,17 @@ const (
 		"obj" : {
 			"value": "value",
 			"emptyArray": [],
-			"array": ["a", "b"],
+			"array": ["a", "b", "c"],
 			"arrayInArray": [
-				["a", "b"],
+				["a", "b", "c"],
 				["c", "d"]
 			],
 			"obj" : {
 				"value": "value",
 				"emptyArray": [],
-				"array": ["a", "b"],
+				"array": ["a", "b", "c"],
 				"arrayInArray": [
-					["a", "b"],
+					["a", "b", "c"],
 					["c", "d"]
 				]
 			}
@@ -142,17 +142,17 @@ const (
 			{
 				"value": "value",
 				"emptyArray": [],
-				"array": ["a", "b"],
+				"array": ["a", "b", "c"],
 				"arrayInArray": [
-					["a", "b"],
+					["a", "b", "c"],
 					["c", "d"]
 				],
 				"obj" : {
 					"value": "value",
 					"emptyArray": [],
-					"array": ["a", "b"],
+					"array": ["a", "b", "c"],
 					"arrayInArray": [
-						["a", "b"],
+						["a", "b", "c"],
 						["c", "d"]
 					]
 				}
@@ -168,16 +168,16 @@ const (
 				"obj" : {
 					"value": "value",
 					"emptyArray": [],
-					"array": ["a", "b"],
+					"array": ["a", "b", "c"],
 					"arrayInArray": [
-						["a", "b"],
+						["a", "b", "c"],
 						["c", "d"]
 					]
 				}
 			}
 		],
 		"arrayInArray": [
-			["a", "b"],
+			["a", "b", "c"],
 			["c", "d"]
 		],
 		"emptyArray": []
@@ -443,70 +443,100 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, expectedObj, obj)
 }
 
-/*
-func TestGet(t *testing.T) {
+func TestDelete(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(configMapJSON),
+		Raw: []byte(testCasesJSON),
 	}
 
 	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
-	value := obj.Get([]string{"array[]"}, "search")
-	assert.Equal(t, "0", value)
+	// Field
+	assert.True(t, obj.Has(NewPathFromJQFormat("metadata.name")))
+	err = obj.Delete(NewPathFromJQFormat("metadata.name"))
+	assert.NoError(t, err)
+	assert.False(t, obj.Has(NewPathFromJQFormat("metadata.name")))
+	assert.True(t, obj.Has(NewPathFromJQFormat("metadata")))
 
-	value = obj.Get([]string{"array[0]"}, "search")
-	assert.Equal(t, "0", value)
+	// Array
+	path := NewPathFromJQFormat("a.obj.array")
+	assert.True(t, obj.Has(path))
 
-	value = obj.Get([]string{"array[1]"}, "search")
-	assert.Equal(t, "2", value)
+	err = obj.Delete(NewPathFromJQFormat("a.obj.array[1]"))
+	assert.NoError(t, err)
+	assert.True(t, obj.Has(path))
 
-	value = obj.Get([]string{"array[2]"}, "search")
-	assert.Nil(t, value)
+	value, err := obj.Get(path)
+	assert.NoError(t, err)
+	assert.True(t, obj.Has(path))
+	assert.Equal(t, 2, len(value.([]interface{})))
 
-	value = obj.Get([]string{"array"}, "search")
-	assert.Nil(t, value)
+	err = obj.Delete(path)
+	assert.NoError(t, err)
+	assert.False(t, obj.Has(path))
 
-	value = obj.Get([]string{"array[]", "nested[]"}, "search")
-	assert.Equal(t, "1", value)
+	// Array-in-array tests
+	path = NewPathFromJQFormat("a.obj.arrayInArray")
+	path0 := NewPathFromJQFormat("a.obj.arrayInArray[0]")
+	path1 := NewPathFromJQFormat("a.obj.arrayInArray[1]")
+	assert.True(t, obj.Has(path))
+
+	// Delete element in nested array
+	err = obj.Delete(NewPathFromJQFormat("a.obj.arrayInArray[0][1]"))
+	assert.NoError(t, err)
+	assert.True(t, obj.Has(path))
+
+	value, err = obj.Get(path0)
+	assert.NoError(t, err)
+	assert.True(t, obj.Has(path))
+	assert.True(t, obj.Has(path0))
+	assert.True(t, obj.Has(path1))
+	assert.Equal(t, 2, len(value.([]interface{})))
+
+	// Delete nested array
+	err = obj.Delete(path0)
+	assert.NoError(t, err)
+	assert.True(t, obj.Has(path))
+	assert.True(t, obj.Has(path0))
+	assert.False(t, obj.Has(path1))
+
+	// Object
+	path = NewPathFromJQFormat("a.obj")
+	assert.True(t, obj.Has(path))
+
+	err = obj.Delete(path)
+	assert.NoError(t, err)
+	assert.False(t, obj.Has(path))
 }
 
-func TestFind(t *testing.T) {
+func TestGet(t *testing.T) {
 	json := runtime.RawExtension{
-		Raw: []byte(configMapJSON),
+		Raw: []byte(testCasesJSON),
 	}
 
 	obj, err := NamedObjectFromRaw(&json)
 	assert.NoError(t, err)
 
-	// Test "any" search
-	value := obj.Find([]string{"array[]"}, "search", nil)
-	assert.Equal(t, 2, len(value))
-	assert.Equal(t, []string{"array[0]", "search"}, value[0])
-	assert.Equal(t, []string{"array[1]", "search"}, value[1])
+	value, err := obj.Get(NewPathFromJQFormat("a.obj.value"))
+	assert.NoError(t, err)
+	assert.Equal(t, "value", value)
 
-	// Test "any" first search
-	singleValue := obj.FindFirst([]string{"array[]"}, "search", nil)
-	assert.NotEmpty(t, value)
-	assert.Equal(t, []string{"array[0]", "search"}, singleValue)
+	value, err = obj.Get(NewPathFromJQFormat("a.obj.array"))
+	assert.NoError(t, err)
+	assert.Equal(t, []interface{}{"a", "b", "c"}, value)
 
-	// Test specific search
-	value = obj.Find([]string{"array[]"}, "search", "0")
-	assert.Equal(t, 1, len(value))
+	value, err = obj.Get(NewPathFromJQFormat("a.obj.arrayInArray[0]"))
+	assert.NoError(t, err)
+	assert.Equal(t, []interface{}{"a", "b", "c"}, value)
 
-	// Test nested "any" search
-	value = obj.Find([]string{"array[]", "nested[]"}, "search", nil)
-	assert.Equal(t, 1, len(value))
-	assert.Equal(t, []string{"array[0]", "nested[0]", "search"}, value[0])
+	value, err = obj.Get(NewPathFromJQFormat("a.obj.arrayInArray[0][1]"))
+	assert.NoError(t, err)
+	assert.Equal(t, "b", value)
 
-	// Test out of bound
-	value = obj.Find([]string{"array[]", "nested[1]"}, "search", nil)
-	assert.Empty(t, value)
-
-	// Test mismatch
-	value = obj.Find([]string{"array[]"}, "search", "10")
-	assert.Empty(t, value)
-}*/
+	value, err = obj.Get(NewPathFromJQFormat("a.array[0].value"))
+	assert.NoError(t, err)
+	assert.Equal(t, "value", value)
+}
 
 func TestComplexHash(t *testing.T) {
 	json := runtime.RawExtension{
@@ -654,7 +684,7 @@ func TestWalk(t *testing.T) {
 
 	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array"), WalkArgs{})
 	assert.NoError(t, err)
-	assert.Equal(t, []interface{}{"a", "b"}, v)
+	assert.Equal(t, []interface{}{"a", "b", "c"}, v)
 
 	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array.foo"), WalkArgs{})
 	assert.NotNil(t, err)
