@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.0](https://github.com/trivago/go-kubernetes/compare/v2.0.0...v2.1.0) (2023-11-07)
+
+
+### Features
+
+* add client.Apply ([98e1442](https://github.com/trivago/go-kubernetes/commit/98e14423127f5e18a4676bef71387378b81f1929))
+* add client.Delete ([98e1442](https://github.com/trivago/go-kubernetes/commit/98e14423127f5e18a4676bef71387378b81f1929))
+* add kubernetes delete and apply ([#13](https://github.com/trivago/go-kubernetes/issues/13)) ([98e1442](https://github.com/trivago/go-kubernetes/commit/98e14423127f5e18a4676bef71387378b81f1929))
+
 ## [2.0.0](https://github.com/trivago/go-kubernetes/compare/v1.0.0...v2.0.0) (2023-04-26)
 
 
