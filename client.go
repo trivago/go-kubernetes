@@ -29,14 +29,20 @@ type Client struct {
 
 // NewClusterClient creates a new kubernetes client for the current cluster.
 func NewClusterClient() (*Client, error) {
-	return NewClient("", "")
+	return NewClientUsingContext("", "")
 }
 
-// NewClient creates a new kubernetes client for a given path to a
+// NewClient creates a new kubernetes client for a given path to a kubeconfig.
+// The client will use the default context from the kubeconfig file.
+func NewClient(path string) (*Client, error) {
+	return NewClientUsingContext(path, "")
+}
+
+// NewClientUsingContext creates a new kubernetes client for a given path to a
 // kubeconfig file. If no file is given, an in-cluster client will be created.
 // The context parameter can be used to specify a specific context from the
 // kubeconfig file. When left empty, the default context will be used.
-func NewClient(path, context string) (*Client, error) {
+func NewClientUsingContext(path, context string) (*Client, error) {
 	var (
 		err    error
 		config *restclient.Config
