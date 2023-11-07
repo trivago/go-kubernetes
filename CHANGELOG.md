@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/trivago/go-kubernetes/compare/v2.1.0...v2.1.1) (2023-11-07)
+
+
+### Miscellaneous
+
+* revert to release auto-detection ([a6a4adb](https://github.com/trivago/go-kubernetes/commit/a6a4adbacabd5c5362e2f223ddf1414250d460a0))
+
 ## [2.1.0](https://github.com/trivago/go-kubernetes/compare/v2.0.0...v2.1.0) (2023-11-07)
 
 
