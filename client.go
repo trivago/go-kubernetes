@@ -87,6 +87,25 @@ func NewClient(path, context string) (*Client, error) {
 	return &k8sClient, nil
 }
 
+// GetContextsFromConfig reads a kubeconfig file and returns a list of contexts names.
+func GetContextsFromConfig(path string) ([]string, error) {
+	rules := clientcmd.ClientConfigLoadingRules{
+		ExplicitPath: path,
+	}
+	config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&rules, &clientcmd.ConfigOverrides{})
+	rawConfig, err := config.RawConfig()
+	if err != nil {
+		return []string{}, err
+	}
+
+	contextNames := make([]string, 0, len(rawConfig.Contexts))
+	for name, _ := range rawConfig.Contexts {
+		contextNames = append(contextNames, name)
+	}
+
+	return contextNames, nil
+}
+
 // GetNamedObject returns a specific kubernetes object
 func (k8s *Client) GetNamedObject(resource schema.GroupVersionResource, name string) (NamedObject, error) {
 	resourceHandle := k8s.client.Resource(resource)
