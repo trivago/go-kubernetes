@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -26,17 +27,46 @@ type Client struct {
 	schemaCache map[string]schema.GroupVersionKind
 }
 
+// NewClusterClient creates a new kubernetes client for the current cluster.
+func NewClusterClient() (*Client, error) {
+	return NewClient("", "")
+}
+
 // NewClient creates a new kubernetes client for a given path to a
 // kubeconfig file. If no file is given, an in-cluster client will be created.
-func NewClient(kubeconfig string) (*Client, error) {
+// The context parameter can be used to specify a specific context from the
+// kubeconfig file. When left empty, the default context will be used.
+func NewClient(path, context string) (*Client, error) {
+	var (
+		err    error
+		config *restclient.Config
+	)
+
 	k8sClient := Client{
 		schemaCache: make(map[string]schema.GroupVersionKind),
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		log.Error().Msg("failed to build in-cluster kubeconfig")
-		return nil, err
+	if path == "" {
+		// In cluster client if path is empty
+		config, err = restclient.InClusterConfig()
+		if err != nil {
+			log.Error().Msg("failed to build in-cluster kubeconfig")
+			return nil, err
+		}
+	} else {
+		// Out of cluster client if path is given.
+		rules := clientcmd.ClientConfigLoadingRules{
+			ExplicitPath: path,
+		}
+		// Support context overrides
+		overrides := clientcmd.ConfigOverrides{
+			CurrentContext: context,
+		}
+		config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&rules, &overrides).ClientConfig()
+		if err != nil {
+			log.Error().Msgf("failed to load kubeconfig from %s", path)
+			return nil, err
+		}
 	}
 
 	k8sClient.client, err = dynamic.NewForConfig(config)
