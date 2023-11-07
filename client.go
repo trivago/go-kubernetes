@@ -3,11 +3,13 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -79,6 +81,11 @@ func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, nam
 
 // ListAllObjects returns a list of objects for a given type
 func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector string) ([]NamedObject, error) {
+	start := time.Now()
+	defer func() {
+		log.Debug().Msgf("list operation took %s", time.Since(start).String())
+	}()
+
 	resourceHandle := k8s.client.Resource(resource)
 	options := metav1.ListOptions{
 		LabelSelector: selector,
@@ -95,7 +102,7 @@ func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector
 		obj, parseErr := NamedObjectFromUnstructured(rawObject)
 		if parseErr != nil {
 			if err != nil {
-				err = fmt.Errorf("Error parsing item(s) from list")
+				err = fmt.Errorf("error parsing item(s) from list")
 			}
 			errors.Wrap(err, err.Error())
 		}
@@ -103,4 +110,64 @@ func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector
 	}
 
 	return resultList, err
+}
+
+// Apply creates or updates a given kubernetes object.
+// If a namespace is set, the object will be created in that namespace.
+func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObject, options metav1.ApplyOptions) {
+	start := time.Now()
+	defer func() {
+		log.Debug().Msgf("apply operation took %s", time.Since(start).String())
+	}()
+
+	var (
+		resourceHandle dynamic.ResourceInterface
+		identifier     string
+	)
+
+	if object.GetNamespace() != "" {
+		resourceHandle = k8s.client.Resource(resource).Namespace(object.GetNamespace())
+		identifier = fmt.Sprintf("%s/%s", object.GetNamespace(), object.GetName())
+	} else {
+		resourceHandle = k8s.client.Resource(resource)
+		identifier = object.GetName()
+	}
+
+	unstructuredObject := &unstructured.Unstructured{
+		Object: object,
+	}
+
+	if _, err := resourceHandle.Apply(context.Background(), object.GetName(), unstructuredObject, options); err != nil {
+		log.Error().Err(err).Interface(object.GetName(), object).Msgf("failed to trigger apply for %s", identifier)
+	} else {
+		log.Debug().Msgf("applied %s", identifier)
+	}
+}
+
+// DeleteNamespaced removes a specific kubernetes object from a specific namespace.
+// If an empty namespace is given, the object will be treated as a cluster-wide resource.
+func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, namespace string) {
+	start := time.Now()
+	defer func() {
+		log.Debug().Msgf("delete operation took %s", time.Since(start).String())
+	}()
+
+	var (
+		resourceHandle dynamic.ResourceInterface
+		identifier     string
+	)
+
+	if namespace != "" {
+		resourceHandle = k8s.client.Resource(resource).Namespace(namespace)
+		identifier = fmt.Sprintf("%s/%s", namespace, name)
+	} else {
+		resourceHandle = k8s.client.Resource(resource)
+		identifier = name
+	}
+
+	if err := resourceHandle.Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+		log.Error().Err(err).Msgf("failed to trigger delete for %s", identifier)
+	} else {
+		log.Info().Msgf("deleted %s", identifier)
+	}
 }
