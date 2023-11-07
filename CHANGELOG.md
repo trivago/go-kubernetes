@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.0](https://github.com/trivago/go-kubernetes/compare/v2.1.0...v2.2.0) (2023-11-07)
+
+
+### Features
+
+* Add a function to list available contexts ([e6f1372](https://github.com/trivago/go-kubernetes/commit/e6f13722664c861520162c642c48e63758c5880b))
+* allow kubeconfig context selection ([ed89650](https://github.com/trivago/go-kubernetes/commit/ed8965000261210abe59638bec7e0e013ce7443a))
+* Introduce NewClientUsingContext to make NewClient non-breaking. ([0682d96](https://github.com/trivago/go-kubernetes/commit/0682d96de9c191207025ad1d52b618cbf287023a))
+
+
+### Miscellaneous
+
+* revert to release auto-detection ([a6a4adb](https://github.com/trivago/go-kubernetes/commit/a6a4adbacabd5c5362e2f223ddf1414250d460a0))
+
 ## [2.1.0](https://github.com/trivago/go-kubernetes/compare/v2.0.0...v2.1.0) (2023-11-07)
 
 
