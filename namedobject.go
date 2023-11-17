@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"maps"
 	"reflect"
 	"sort"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // NamedObject represents a kubernetes object and provides common functionality
@@ -690,4 +692,52 @@ func walk(node interface{}, path Path, args WalkArgs) (interface{}, error) {
 	}
 
 	return nil, ErrNotTraversable(args.getKey() + " is " + reflect.ValueOf(node).Kind().String())
+}
+
+// GetObjectKind implements the runtime.Object interface.
+// Returns schema.EmptyObjectKind
+func (obj NamedObject) GetObjectKind() schema.ObjectKind {
+	return schema.EmptyObjectKind
+}
+
+// DeepCopyObject implements the runtime.Object interface.
+func (obj NamedObject) DeepCopyObject() runtime.Object {
+	new := make(NamedObject)
+	maps.Copy(new, obj)
+	return new
+}
+
+// NewEmptyInstance implements the runtime.Unstructured interface.
+// Returns an empty NamedObject.
+func (obj NamedObject) NewEmptyInstance() runtime.Unstructured {
+	return NamedObject{}
+}
+
+// UnstructuredContent implements the runtime.Unstructured interface.
+// Returns the object itself
+func (obj NamedObject) UnstructuredContent() map[string]interface{} {
+	return obj
+}
+
+// SetUnstructuredContent implements the runtime.Unstructured interface.
+func (obj NamedObject) SetUnstructuredContent(new map[string]interface{}) {
+	maps.Copy(obj, new)
+}
+
+// IsList implements the runtime.Unstructured interface.
+// This function returns false
+func (obj NamedObject) IsList() bool {
+	return false
+}
+
+// EachListItem implements the runtime.Unstructured interface.
+// This function does nothing.
+func (obj NamedObject) EachListItem(func(runtime.Object) error) error {
+	return nil
+}
+
+// EachListItemWithAlloc implements the runtime.Unstructured interface.
+// This function does nothing.
+func (obj NamedObject) EachListItemWithAlloc(func(runtime.Object) error) error {
+	return nil
 }
