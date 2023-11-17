@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/trivago/go-kubernetes/compare/v2.2.0...v2.3.0) (2023-11-17)
+
+
+### Features
+
+* Implement k8s unstructured object API ([3a596fa](https://github.com/trivago/go-kubernetes/commit/3a596fabb4b359d8f1761ba4ffd4141065a76591))
+
 ## [2.2.0](https://github.com/trivago/go-kubernetes/compare/v2.1.0...v2.2.0) (2023-11-07)
 
 
