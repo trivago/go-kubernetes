@@ -134,11 +134,21 @@ func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, nam
 	return NamedObjectFromUnstructured(*rawObject)
 }
 
-// ListAllObjects returns a list of objects for a given type.
+// ListAllObjects returns a list of all objects for a given type that is assumed to be global.
+func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector string) ([]NamedObject, error) {
+	return k8s.list(resource, "", selector)
+}
+
+// ListAllObjectsInNamespace returns a list of all objects for a given type in a given namespace.
+func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
+	return k8s.list(resource, namespace, selector)
+}
+
+// list returns a list of objects for a given type.
 // Namespace and selector are optional arguments. If namespace is left empty,
 // a global resource is expected. If selector is left empty, all objects will
 // be returned.
-func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
+func (k8s *Client) list(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
 	start := time.Now()
 	defer func() {
 		log.Debug().Msgf("list operation took %s", time.Since(start).String())
