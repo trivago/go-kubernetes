@@ -9,7 +9,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'main(simple)'
-        uses: 'google-github-actions/release-please-action@db8f2c60ee802b3748b512940dde88eabd7b7e01' # 3.7.13
+        uses: 'google-github-actions/release-please-action@a2d8d683f209466ee8c695cd994ae2cf08b1642d' # 4.0.1
         with:
           default-branch: 'main'
           release-type: 'simple'
