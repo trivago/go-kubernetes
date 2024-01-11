@@ -76,6 +76,7 @@ func ConcatPaths(p1, p2 Path) Path {
 // object. Field names can be quoted using single tick. Arrays need to use
 // square-braces postfixes (Array[]). Empty braces translated to "all" (read)
 // or "append" (write).
+// Example of a jq path string: "a.b[].c[1].'d'.e"
 func NewPathFromJQFormat(jqPath string) Path {
 	if len(jqPath) == 0 {
 		return Path{}
@@ -133,8 +134,8 @@ func NewPathFromJQFormat(jqPath string) Path {
 }
 
 // NewPathFromJSONPathFormat accepts a JSON path and transforms it into a Path
-// object.
-// See https://jsonpatch.com/#json-pointer
+// object. See https://jsonpatch.com/#json-pointer
+// Example of a JSON-Path string: "a/b/-/c/1/d/e"
 func NewPathFromJSONPathFormat(jsonPath string) Path {
 	if len(jsonPath) == 0 || jsonPath == "/" {
 		return Path{}

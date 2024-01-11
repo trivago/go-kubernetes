@@ -134,16 +134,52 @@ func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, nam
 	return NamedObjectFromUnstructured(*rawObject)
 }
 
-// ListAllObjects returns a list of objects for a given type
+// ListAllObjects returns a list of all objects for a given type that is assumed to be global.
 func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector string) ([]NamedObject, error) {
+	return k8s.list(resource, "", selector)
+}
+
+// ListAllObjectsInNamespace returns a list of all objects for a given type in a given namespace.
+func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
+	return k8s.list(resource, namespace, selector)
+}
+
+// ListAllObjectsInNamespaceMatching returns a list of all objects matching a given selector struct.
+// This struct is used in varios API objects like namespaceSelector or objectSelector.
+// Use ParseLabelSelector to create this struct from an existing object.
+func (k8s *Client) ListAllObjectsInNamespaceMatching(resource schema.GroupVersionResource, namespace string, matchExpression metav1.LabelSelector) ([]NamedObject, error) {
+	selector := metav1.FormatLabelSelector(&matchExpression)
+	return k8s.list(resource, namespace, selector)
+}
+
+// ListAllObjectsMatching returns a list of all objects matching a given selector struct.
+// This struct is used in varios API objects like namespaceSelector or objectSelector.
+// Use ParseLabelSelector to create this struct from an existing object.
+func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, matchExpression metav1.LabelSelector) ([]NamedObject, error) {
+	selector := metav1.FormatLabelSelector(&matchExpression)
+	return k8s.list(resource, "", selector)
+}
+
+// list returns a list of objects for a given type.
+// Namespace and selector are optional arguments. If namespace is left empty,
+// a global resource is expected. If selector is left empty, all objects will
+// be returned.
+func (k8s *Client) list(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
 	start := time.Now()
 	defer func() {
 		log.Debug().Msgf("list operation took %s", time.Since(start).String())
 	}()
 
-	resourceHandle := k8s.client.Resource(resource)
 	options := metav1.ListOptions{
 		LabelSelector: selector,
+	}
+
+	var resourceHandle dynamic.ResourceInterface
+
+	if len(namespace) > 0 {
+		resourceHandle = k8s.client.Resource(resource).Namespace(namespace)
+	} else {
+		resourceHandle = k8s.client.Resource(resource)
 	}
 
 	list, err := resourceHandle.List(context.Background(), options)
@@ -152,7 +188,6 @@ func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector
 	}
 
 	resultList := make([]NamedObject, 0, len(list.Items))
-
 	for _, rawObject := range list.Items {
 		obj, parseErr := NamedObjectFromUnstructured(rawObject)
 		if parseErr != nil {
