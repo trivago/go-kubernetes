@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/trivago/go-kubernetes/compare/v2.4.0...v2.5.0) (2024-01-11)
+
+
+### Features
+
+* add patch function to client ([#30](https://github.com/trivago/go-kubernetes/issues/30)) ([3e9fc2e](https://github.com/trivago/go-kubernetes/commit/3e9fc2e2994e5f1cf363ec799d47484eacb3cc9b))
+
 ## [2.4.0](https://github.com/trivago/go-kubernetes/compare/v2.3.0...v2.4.0) (2024-01-11)
 
 
