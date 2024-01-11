@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.0](https://github.com/trivago/go-kubernetes/compare/v2.3.0...v2.4.0) (2024-01-11)
+
+
+### Features
+
+* add GetSection and GetList convenience functions ([fe7bf17](https://github.com/trivago/go-kubernetes/commit/fe7bf17e7df6771a42a41927cb7c0d7a1a9d9b95))
+* Add support for LabelSelector based queries ([#29](https://github.com/trivago/go-kubernetes/issues/29)) ([fe7bf17](https://github.com/trivago/go-kubernetes/commit/fe7bf17e7df6771a42a41927cb7c0d7a1a9d9b95))
+* add support for LabelSelector when listing objects ([fe7bf17](https://github.com/trivago/go-kubernetes/commit/fe7bf17e7df6771a42a41927cb7c0d7a1a9d9b95))
+* allow list for namespaced resources ([dcbdbaa](https://github.com/trivago/go-kubernetes/commit/dcbdbaab4dcd712841b96482640d11d409561c44))
+
 ## [2.3.0](https://github.com/trivago/go-kubernetes/compare/v2.2.0...v2.3.0) (2023-11-17)
 
 
