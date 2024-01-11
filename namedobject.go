@@ -162,8 +162,8 @@ func (obj NamedObject) Has(path Path) bool {
 }
 
 // GetString will return a string value assigned to a given key on a given path.
-// If the object is not a string or the path or key does not exist, false is
-// and an empty string returned.
+// If the object is not a string or the path or key does not exist, an empty
+// string and an error are returned.
 func (obj NamedObject) GetString(path Path) (string, error) {
 	value, err := obj.Get(path)
 	if err != nil {
@@ -175,6 +175,39 @@ func (obj NamedObject) GetString(path Path) (string, error) {
 		return str, ErrIncorrectType(reflect.TypeOf(value).String())
 	}
 	return str, nil
+}
+
+// GetSection will return a map[string]interface{} (a sub-section) assigned to a
+// given key on a given path.
+// If the object is not a map or the path or key does not exist, nil and an
+// error are returned.
+func (obj NamedObject) GetSection(path Path) (map[string]interface{}, error) {
+	value, err := obj.Get(path)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, ok := value.(map[string]interface{})
+	if !ok {
+		return obj, ErrIncorrectType(reflect.TypeOf(value).String())
+	}
+	return obj, nil
+}
+
+// GetList will return a []interface{} assigned to a given key on a given path.
+// If the object is not a list or the path or key does not exist, nil and an
+// error are returned.
+func (obj NamedObject) GetList(path Path) ([]interface{}, error) {
+	value, err := obj.Get(path)
+	if err != nil {
+		return nil, err
+	}
+
+	slice, ok := value.([]interface{})
+	if !ok {
+		return nil, ErrIncorrectType(reflect.TypeOf(value).String())
+	}
+	return slice, nil
 }
 
 // GetName will return the name of the object.
