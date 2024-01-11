@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	restclient "k8s.io/client-go/rest"
@@ -259,5 +261,39 @@ func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, 
 		log.Error().Err(err).Msgf("failed to trigger delete for %s", identifier)
 	} else {
 		log.Info().Msgf("deleted %s", identifier)
+	}
+}
+
+// Patch applies a set of patches on a given kubernetes object.
+// The patches are applied as json patches.
+func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObject, patches []PatchOperation, options metav1.PatchOptions) {
+	start := time.Now()
+	defer func() {
+		log.Debug().Msgf("patch operation took %s", time.Since(start).String())
+	}()
+
+	var (
+		resourceHandle dynamic.ResourceInterface
+		identifier     string
+	)
+
+	if object.GetNamespace() != "" {
+		resourceHandle = k8s.client.Resource(resource).Namespace(object.GetNamespace())
+		identifier = fmt.Sprintf("%s/%s", object.GetNamespace(), object.GetName())
+	} else {
+		resourceHandle = k8s.client.Resource(resource)
+		identifier = object.GetName()
+	}
+
+	patchData, err := json.Marshal(patches)
+	if err != nil {
+		log.Error().Err(err).Interface("patches", patches).Msgf("failed to marshal patch data for %s", identifier)
+		return
+	}
+
+	if _, err := resourceHandle.Patch(context.Background(), object.GetName(), types.JSONPatchType, patchData, metav1.PatchOptions{}); err != nil {
+		log.Error().Err(err).Interface("patches", patches).Msgf("failed to apply patch for %s", identifier)
+	} else {
+		log.Debug().Msgf("applied %s", identifier)
 	}
 }
