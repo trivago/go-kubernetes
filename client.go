@@ -144,6 +144,22 @@ func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResourc
 	return k8s.list(resource, namespace, selector)
 }
 
+// ListAllObjectsInNamespaceMatching returns a list of all objects matching a given selector struct.
+// This struct is used in varios API objects like namespaceSelector or objectSelector.
+// Use ParseLabelSelector to create this struct from an existing object.
+func (k8s *Client) ListAllObjectsInNamespaceMatching(resource schema.GroupVersionResource, namespace string, matchExpression metav1.LabelSelector) ([]NamedObject, error) {
+	selector := metav1.FormatLabelSelector(&matchExpression)
+	return k8s.list(resource, namespace, selector)
+}
+
+// ListAllObjectsMatching returns a list of all objects matching a given selector struct.
+// This struct is used in varios API objects like namespaceSelector or objectSelector.
+// Use ParseLabelSelector to create this struct from an existing object.
+func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, matchExpression metav1.LabelSelector) ([]NamedObject, error) {
+	selector := metav1.FormatLabelSelector(&matchExpression)
+	return k8s.list(resource, "", selector)
+}
+
 // list returns a list of objects for a given type.
 // Namespace and selector are optional arguments. If namespace is left empty,
 // a global resource is expected. If selector is left empty, all objects will
