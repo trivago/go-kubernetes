@@ -265,6 +265,7 @@ func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, 
 }
 
 // Patch applies a set of patches on a given kubernetes object.
+// The patches are applied as json patches.
 func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObject, patches []PatchOperation, options metav1.PatchOptions) {
 	start := time.Now()
 	defer func() {
