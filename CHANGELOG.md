@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/trivago/go-kubernetes/compare/v2.5.0...v2.5.1) (2024-07-10)
+
+
+### Bug Fixes
+
+* add result of patch and apply command to debug out ([3c29f5c](https://github.com/trivago/go-kubernetes/commit/3c29f5c3102654d4f46a018a2c74a669674d5275))
+
 ## [2.5.0](https://github.com/trivago/go-kubernetes/compare/v2.4.0...v2.5.0) (2024-01-11)
 
 
