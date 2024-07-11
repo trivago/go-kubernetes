@@ -229,10 +229,10 @@ func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObjec
 		Object: object,
 	}
 
-	if result, err := resourceHandle.Apply(context.Background(), object.GetName(), unstructuredObject, options); err != nil {
+	if _, err := resourceHandle.Apply(context.Background(), object.GetName(), unstructuredObject, options); err != nil {
 		log.Error().Err(err).Interface(object.GetName(), object).Msgf("failed to trigger apply for %s", identifier)
 	} else {
-		log.Debug().Interface("result", result).Msgf("applied %s", identifier)
+		log.Debug().Msgf("applied %s", identifier)
 	}
 }
 
@@ -291,9 +291,9 @@ func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObjec
 		return
 	}
 
-	if result, err := resourceHandle.Patch(context.Background(), object.GetName(), types.JSONPatchType, patchData, metav1.PatchOptions{}); err != nil {
+	if _, err := resourceHandle.Patch(context.Background(), object.GetName(), types.JSONPatchType, patchData, metav1.PatchOptions{}); err != nil {
 		log.Error().Err(err).Interface("patches", patches).Msgf("failed to apply patch for %s", identifier)
 	} else {
-		log.Debug().Interface("result", result).Msgf("applied %s", identifier)
+		log.Debug().Msgf("applied %s", identifier)
 	}
 }
