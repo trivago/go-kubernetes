@@ -22,6 +22,7 @@
               pre-commit
               shellcheck
               just
+              graphviz
             ];
           };
         }

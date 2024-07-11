@@ -21,3 +21,6 @@
 
 .envrc
 .direnv
+
+cmd/demo/demo
+*.pprof
