@@ -137,43 +137,44 @@ func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, nam
 }
 
 // ListAllObjects returns a list of all objects for a given type that is assumed to be global.
-func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, selector string) ([]NamedObject, error) {
-	return k8s.list(resource, "", selector)
+func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, labelSelector, fieldSelector string) ([]NamedObject, error) {
+	return k8s.list(resource, "", labelSelector, fieldSelector)
 }
 
 // ListAllObjectsInNamespace returns a list of all objects for a given type in a given namespace.
-func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
-	return k8s.list(resource, namespace, selector)
+func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string) ([]NamedObject, error) {
+	return k8s.list(resource, namespace, labelSelector, fieldSelector)
 }
 
 // ListAllObjectsInNamespaceMatching returns a list of all objects matching a given selector struct.
 // This struct is used in varios API objects like namespaceSelector or objectSelector.
 // Use ParseLabelSelector to create this struct from an existing object.
-func (k8s *Client) ListAllObjectsInNamespaceMatching(resource schema.GroupVersionResource, namespace string, matchExpression metav1.LabelSelector) ([]NamedObject, error) {
-	selector := metav1.FormatLabelSelector(&matchExpression)
-	return k8s.list(resource, namespace, selector)
+func (k8s *Client) ListAllObjectsInNamespaceMatching(resource schema.GroupVersionResource, namespace string, labelMatchExpression metav1.LabelSelector, fieldSelector string) ([]NamedObject, error) {
+	labelSelector := metav1.FormatLabelSelector(&labelMatchExpression)
+	return k8s.list(resource, namespace, labelSelector, fieldSelector)
 }
 
 // ListAllObjectsMatching returns a list of all objects matching a given selector struct.
 // This struct is used in varios API objects like namespaceSelector or objectSelector.
 // Use ParseLabelSelector to create this struct from an existing object.
-func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, matchExpression metav1.LabelSelector) ([]NamedObject, error) {
-	selector := metav1.FormatLabelSelector(&matchExpression)
-	return k8s.list(resource, "", selector)
+func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, labelMatchExpression metav1.LabelSelector, fieldSelector string) ([]NamedObject, error) {
+	labelSelector := metav1.FormatLabelSelector(&labelMatchExpression)
+	return k8s.list(resource, "", labelSelector, fieldSelector)
 }
 
 // list returns a list of objects for a given type.
-// Namespace and selector are optional arguments. If namespace is left empty,
+// Namespace, labelSelector and fieldSelector are optional arguments. If namespace is left empty,
 // a global resource is expected. If selector is left empty, all objects will
 // be returned.
-func (k8s *Client) list(resource schema.GroupVersionResource, namespace, selector string) ([]NamedObject, error) {
+func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string) ([]NamedObject, error) {
 	start := time.Now()
 	defer func() {
 		log.Debug().Msgf("list operation took %s", time.Since(start).String())
 	}()
 
 	options := metav1.ListOptions{
-		LabelSelector: selector,
+		LabelSelector: labelSelector,
+		FieldSelector: fieldSelector,
 	}
 
 	var resourceHandle dynamic.ResourceInterface
