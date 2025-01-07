@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	kubernetes "github.com/trivago/go-kubernetes/v2"
+	kubernetes "github.com/trivago/go-kubernetes/v3"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -87,7 +87,7 @@ func main() {
 	}
 
 	for context, client := range clusters {
-		namespaces, err := client.ListAllObjects(namespaceGVR, "")
+		namespaces, err := client.ListAllObjects(namespaceGVR, "", "")
 		if err != nil {
 			log.Error().Msgf("failed to list namespaces in context %s", context)
 			continue
