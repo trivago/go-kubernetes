@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/trivago/go-kubernetes/compare/v2.5.2...v3.0.0) (2025-01-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* support field selectors in queries
+
+### Features
+
+* support field selectors in queries ([face352](https://github.com/trivago/go-kubernetes/commit/face352ccb4d61207e7540cebe9903e00e2ef09e))
+
 ## [2.5.2](https://github.com/trivago/go-kubernetes/compare/v2.5.1...v2.5.2) (2024-07-11)
 
 
