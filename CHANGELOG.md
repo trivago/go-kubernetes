@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/trivago/go-kubernetes/compare/v3.0.0...v3.1.0) (2025-01-08)
+
+
+### Features
+
+* add GetServiceAccountToken ([2176842](https://github.com/trivago/go-kubernetes/commit/2176842086a8d854a9d6bbad428d849851c10738))
+
 ## [3.0.0](https://github.com/trivago/go-kubernetes/compare/v2.5.2...v3.0.0) (2025-01-07)
 
 
