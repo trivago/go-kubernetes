@@ -125,8 +125,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/trivago/go-kubernetes/v3 v3.0.0 h1:19tfzL184DDz3h/CLpEofz5qGZOikza/WQ7NvLz0nCk=
-github.com/trivago/go-kubernetes/v3 v3.0.0/go.mod h1:MO7LcVukKIbXUwRnBuvXEl4ppcDVFc8DnEvoz5k4Ry0=
+github.com/trivago/go-kubernetes/v3 v3.1.0 h1:/y4R7owPXHmGo75CDCQ4uDez4zGihtEkxtCAo1HOkNk=
+github.com/trivago/go-kubernetes/v3 v3.1.0/go.mod h1:tmi2IeUb6YJPsxsuCdoqjaLLQkq2Lp2hQNYfqEaawuw=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
