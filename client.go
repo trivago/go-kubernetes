@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -22,11 +24,17 @@ import (
 
 // Client allows communication with the kubernetes API.
 type Client struct {
+	apiClient           typedClients
 	client              dynamic.Interface
 	discoveryClient     *discovery.DiscoveryClient
 	groupResourceMapper meta.RESTMapper
 
 	schemaCache map[string]schema.GroupVersionKind
+}
+
+// typedClients holds kubernetes clients for different API groups.
+type typedClients struct {
+	corev1 *corev1client.CoreV1Client
 }
 
 // NewClusterClient creates a new kubernetes client for the current cluster.
@@ -83,6 +91,12 @@ func NewClientUsingContext(path, context string) (*Client, error) {
 		return nil, err
 	}
 
+	k8sClient.apiClient.corev1, err = corev1client.NewForConfig(config)
+	if err != nil {
+		log.Error().Msg("failed to create in-cluster kubernetes core v1 client")
+		return nil, err
+	}
+
 	k8sClient.discoveryClient, err = discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		log.Error().Msg("failed to create in-cluster kubernetes discovery client")
@@ -90,6 +104,10 @@ func NewClientUsingContext(path, context string) (*Client, error) {
 	}
 
 	groupResources, err := restmapper.GetAPIGroupResources(k8sClient.discoveryClient)
+	if err != nil {
+		log.Error().Msg("failed to create in-cluster kubernetes group resource mapper")
+		return nil, err
+	}
 	k8sClient.groupResourceMapper = restmapper.NewDiscoveryRESTMapper(groupResources)
 
 	return &k8sClient, nil
@@ -297,4 +315,27 @@ func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObjec
 	} else {
 		log.Debug().Msgf("applied %s", identifier)
 	}
+}
+
+// GetServiceAccountToken returns a token for a given service account.
+// This requires the calling service to have the necessary permissions for
+// `authentication.k8s.io/tokenrequests`.
+func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, expiration time.Duration, audiences []string, ctx context.Context) (string, error) {
+	expirationSec := int64(expiration.Seconds())
+	request := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			Audiences:         audiences,
+			ExpirationSeconds: &expirationSec,
+		},
+	}
+
+	response, err := k8s.apiClient.corev1.ServiceAccounts(namespace).CreateToken(ctx, serviceAccountName, request, metav1.CreateOptions{})
+	if err != nil {
+		return "", err
+	}
+	if len(response.Status.Token) == 0 {
+		return "", fmt.Errorf("no token in server response")
+	}
+
+	return response.Status.Token, nil
 }
