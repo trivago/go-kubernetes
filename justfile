@@ -5,8 +5,8 @@ set shell := ["/usr/bin/env", "bash", "-euo", "pipefail", "-c"]
 _default:
   @just -l
 
-build:
-  docker build -t "go-kubernetes:latest" .
+build cmd="demo":
+  docker build --build-arg='CMD={{cmd}}' -t "go-kubernetes:latest" .
 
 init-nix:
     #!/usr/bin/env bash
