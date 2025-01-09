@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.0](https://github.com/trivago/go-kubernetes/compare/v3.1.0...v3.2.0) (2025-01-09)
+
+
+### Features
+
+* add GetKind, GetVersion and GetUID to NamedObjects ([8be5cfb](https://github.com/trivago/go-kubernetes/commit/8be5cfb9a75c753182715e83105080e3bb9ff5be))
+* allow service account tokens to be bound to a pod ([9c249d1](https://github.com/trivago/go-kubernetes/commit/9c249d16da7cd3f316a0d1af036e3bd690390cda))
+
 ## [3.1.0](https://github.com/trivago/go-kubernetes/compare/v3.0.0...v3.1.0) (2025-01-08)
 
 
