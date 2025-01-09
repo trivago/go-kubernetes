@@ -233,6 +233,30 @@ func (obj NamedObject) GetNamespace() string {
 	return ""
 }
 
+// GetKind returns the kind of the object.
+func (obj NamedObject) GetKind() string {
+	if kind, err := obj.GetString(Path{"kind"}); err == nil {
+		return kind
+	}
+	return ""
+}
+
+// GetVersion returns the apiVersion of the object.
+func (obj NamedObject) GetVersion() string {
+	if version, err := obj.GetString(Path{"apiVersion"}); err == nil {
+		return version
+	}
+	return ""
+}
+
+// GetUID returns the UID of the object from the metadata.
+func (obj NamedObject) GetUID() string {
+	if uid, err := obj.GetString(Path{"metadata", "uid"}); err == nil {
+		return uid
+	}
+	return ""
+}
+
 // GetOwnerKind returns the resource kind of an owning resource, e.g.,
 // ReplicaSet if the pod is managed by a ReplicaSet
 func (obj NamedObject) GetOwnerKind() string {
