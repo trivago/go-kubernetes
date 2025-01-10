@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/trivago/go-kubernetes/compare/v3.2.0...v3.2.1) (2025-01-10)
+
+
+### Bug Fixes
+
+* lowercase object kind for type check in GetServiceAccountToken ([5d6d747](https://github.com/trivago/go-kubernetes/commit/5d6d7471665ca85562ddfcd60a4d39056bbe3de6))
+
 ## [3.2.0](https://github.com/trivago/go-kubernetes/compare/v3.1.0...v3.2.0) (2025-01-09)
 
 
