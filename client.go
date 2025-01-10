@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -332,7 +333,7 @@ func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, 
 			UID:        types.UID(pod.GetUID()),
 		}
 
-		if boundPodRef.Kind != "pod" {
+		if strings.ToLower(boundPodRef.Kind) != "pod" {
 			return "", fmt.Errorf("bound object reference must be a pod or nil")
 		}
 	}
