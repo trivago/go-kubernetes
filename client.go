@@ -321,7 +321,7 @@ func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObjec
 // GetServiceAccountToken returns a token for a given service account.
 // This requires the calling service to have the necessary permissions for
 // `authentication.k8s.io/tokenrequests`.
-func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, expiration time.Duration, audience string, pod NamedObject, ctx context.Context) (string, error) {
+func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, expiration time.Duration, audiences []string, pod NamedObject, ctx context.Context) (string, error) {
 	expirationSec := int64(expiration.Seconds())
 	var boundPodRef authenticationv1.BoundObjectReference
 
@@ -340,7 +340,7 @@ func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, 
 
 	request := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
-			Audiences:         []string{audience},
+			Audiences:         audiences,
 			ExpirationSeconds: &expirationSec,
 			BoundObjectRef:    &boundPodRef,
 		},
