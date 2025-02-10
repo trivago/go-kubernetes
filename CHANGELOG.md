@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.2](https://github.com/trivago/go-kubernetes/compare/v3.2.1...v3.2.2) (2025-02-10)
+
+
+### Bug Fixes
+
+* allow multiple audiences to be given ([80c7830](https://github.com/trivago/go-kubernetes/commit/80c7830eb7c115b464417733bb77b3af50985c24))
+
 ## [3.2.1](https://github.com/trivago/go-kubernetes/compare/v3.2.0...v3.2.1) (2025-01-10)
 
 
