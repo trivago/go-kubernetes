@@ -8,9 +8,8 @@ jobs:
     name: 'Release Please'
     runs-on: 'ubuntu-latest'
     steps:
-      - name: 'main(simple)'
-        uses: 'google-github-actions/release-please-action@e4dc86ba9405554aeba3c6bb2d169500e7d3b4ee' # 4.1.1
+      - name: 'main'
+        uses: 'google-github-actions/release-please-action@v4.1.1'
         with:
-          default-branch: 'main'
-          release-type: 'simple'
-          changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"chore","section":"Miscellaneous","hidden":false}]'
+          config-file: '.github/release-please-config.json'
+          manifest-file: '.github/release-please-manifest.json'

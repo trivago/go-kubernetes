@@ -23,6 +23,8 @@
               shellcheck
               just
               graphviz
+              gotools
+              golangci-lint
             ];
           };
         }
