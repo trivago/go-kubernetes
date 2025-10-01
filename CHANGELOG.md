@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.0.0](https://github.com/trivago/go-kubernetes/compare/v3.2.2...v4.0.0) (2025-10-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* Add error propagation for namedobject functions
+
+### Features
+
+* Add error propagation for namedobject functions ([f8fd264](https://github.com/trivago/go-kubernetes/commit/f8fd26457b13a6fc1a00b2145b260b6638cb8207))
+
+
+### Miscellaneous
+
+* add pre-commit config ([9989491](https://github.com/trivago/go-kubernetes/commit/9989491edb8a9347a23c4508847e1e2543293904))
+* moderinize CI ([9eeee19](https://github.com/trivago/go-kubernetes/commit/9eeee193b3145934a7a9c51724f0785537b0dfe2))
+
 ## [3.2.2](https://github.com/trivago/go-kubernetes/compare/v3.2.1...v3.2.2) (2025-02-10)
 
 
