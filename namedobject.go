@@ -13,6 +13,7 @@ import (
 
 	"github.com/cespare/xxhash"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -74,7 +75,7 @@ func NamedObjectFromUnstructured(unstructuredObj unstructured.Unstructured) (Nam
 
 // Find looks for a path with the given value and returns all matching paths.
 // If nil is passed as a value, all full matching paths will be returned.
-func (obj NamedObject) FindAll(path Path, value interface{}) []Path {
+func (obj NamedObject) FindAll(path Path, value interface{}) ([]Path, error) {
 	matchedPaths := []Path{}
 
 	matchValue := func(v interface{}, path Path) bool {
@@ -85,18 +86,18 @@ func (obj NamedObject) FindAll(path Path, value interface{}) []Path {
 		return false
 	}
 
-	obj.Walk(path, WalkArgs{
+	_, err := obj.Walk(path, WalkArgs{
 		MatchAll:  true,
 		MatchFunc: matchValue,
 	})
 
-	return matchedPaths
+	return matchedPaths, err
 }
 
 // FindFirst looks for a path with the given value and returns the first,
 // resolved, matching path. If nil is passed as a value just the path will be
 // matched.
-func (obj NamedObject) FindFirst(path Path, value interface{}) Path {
+func (obj NamedObject) FindFirst(path Path, value interface{}) (Path, error) {
 	matchedPath := Path{}
 
 	matchValue := func(v interface{}, path Path) bool {
@@ -107,12 +108,12 @@ func (obj NamedObject) FindFirst(path Path, value interface{}) Path {
 		return false
 	}
 
-	obj.Walk(path, WalkArgs{
+	_, err := obj.Walk(path, WalkArgs{
 		MatchAll:  false,
 		MatchFunc: matchValue,
 	})
 
-	return matchedPath
+	return matchedPath, err
 }
 
 // Get will return an object for a given path.
@@ -329,25 +330,25 @@ func (obj NamedObject) IsAnnotationNotSetTo(key, value string) bool {
 }
 
 // SetName will set the name of the object.
-func (obj NamedObject) SetName(value string) {
-	obj.Set(PathMetadataName, value)
+func (obj NamedObject) SetName(value string) error {
+	return obj.Set(PathMetadataName, value)
 }
 
 // SetName will set the namespace of the object.
-func (obj NamedObject) SetNamespace(value string) {
-	obj.Set(PathMetadataNamespace, value)
+func (obj NamedObject) SetNamespace(value string) error {
+	return obj.Set(PathMetadataNamespace, value)
 }
 
 // SetAnnotation will set an annotation on the object.
 // It will create the annotations section if it does not exist.
-func (obj NamedObject) SetAnnotation(key, value string) {
-	obj.Set(NewPath(PathAnnotations, key), value)
+func (obj NamedObject) SetAnnotation(key, value string) error {
+	return obj.Set(NewPath(PathAnnotations, key), value)
 }
 
 // SetAnnotation will set a label on the object.
 // It will create the labels section if it does not exist.
-func (obj NamedObject) SetLabel(key, value string) {
-	obj.Set(NewPath(PathLabels, key), value)
+func (obj NamedObject) SetLabel(key, value string) error {
+	return obj.Set(NewPath(PathLabels, key), value)
 }
 
 // IsOfKind returns true if the object is of the given kind and/or apiVersion.
@@ -445,57 +446,99 @@ func (obj NamedObject) getOrderedHash(hasher hash.Hash64) error {
 func doHash(hasher hash.Hash64, k string, iv interface{}) error {
 	switch v := iv.(type) {
 	case []byte:
-		hasher.Write(v)
+		_, err := hasher.Write(v)
+		return err
+
 	case string:
-		hasher.Write([]byte(v))
+		_, err := hasher.Write([]byte(v))
+		return err
+
 	case []string:
+		var err error
 		for _, str := range v {
-			hasher.Write([]byte(str))
+			if _, err2 := hasher.Write([]byte(str)); err2 != nil {
+				if err == nil {
+					err = err2
+				} else {
+					err = errors.Wrapf(err, "failed to hash string in array for field %s: %v", k, err2)
+				}
+			}
 		}
+		return err
 
 	case float32, float64:
 		str := fmt.Sprintf("%f", v)
-		hasher.Write([]byte(str))
+		_, err := hasher.Write([]byte(str))
+		return err
+
 	case int, int16, int32, int64:
 		str := fmt.Sprintf("%d", v)
-		hasher.Write([]byte(str))
+		_, err := hasher.Write([]byte(str))
+		return err
+
 	case uint, uint16, uint32, uint64:
 		str := fmt.Sprintf("%u", v)
-		hasher.Write([]byte(str))
+		_, err := hasher.Write([]byte(str))
+		return err
 
 	case bool:
 		if v {
-			hasher.Write([]byte("true"))
-		} else {
-			hasher.Write([]byte("false"))
+			_, err := hasher.Write([]byte("true"))
+			return err
 		}
+		_, err := hasher.Write([]byte("false"))
+		return err
 
 	case NamedObject:
-		v.getOrderedHash(hasher)
+		return v.getOrderedHash(hasher)
+
 	case []NamedObject:
+		var err error
 		for _, o := range v {
-			o.getOrderedHash(hasher)
+			if err2 := o.getOrderedHash(hasher); err2 != nil {
+				if err == nil {
+					err = err2
+				} else {
+					err = errors.Wrapf(err2, "failed to hash NamedObject in array for field %s: %v", k, err2)
+				}
+			}
 		}
+		return err
 
 	case map[string]interface{}:
 		o := NamedObject(v)
-		o.getOrderedHash(hasher)
+		return o.getOrderedHash(hasher)
+
 	case []map[string]interface{}:
+		var err error
 		for _, msi := range v {
 			o := NamedObject(msi)
-			o.getOrderedHash(hasher)
-		}
-	case []interface{}:
-		for _, element := range v {
-			if err := doHash(hasher, k, element); err != nil {
-				return err
+			if err2 := o.getOrderedHash(hasher); err2 != nil {
+				if err == nil {
+					err = err2
+				} else {
+					err = errors.Wrapf(err2, "failed to hash map[string]interface{} for field %s: %v", k, err2)
+				}
 			}
 		}
+		return err
+
+	case []interface{}:
+		var err error
+		for _, element := range v {
+			if err2 := doHash(hasher, k, element); err2 != nil {
+				if err == nil {
+					err = err2
+				} else {
+					err = errors.Wrapf(err2, "failed to hash element in array for field %s: %v", k, err2)
+				}
+			}
+		}
+		return err
 
 	default:
-		return fmt.Errorf("Cannot create hash for field %s of type %T", k, v)
+		return fmt.Errorf("cannot create hash for field %s of type %T", k, v)
 	}
-	return nil
 }
 
 // Walk will iterate the path up until key is found or path cannot be matched.

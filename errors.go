@@ -41,5 +41,5 @@ func (e ErrIncorrectType) Error() string {
 type ErrIndexNotation string
 
 func (e ErrIndexNotation) Error() string {
-	return fmt.Sprintf("Cannot append to array using index notation")
+	return "Cannot append to array using index notation"
 }
