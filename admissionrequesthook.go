@@ -63,7 +63,7 @@ func (h AdmissionRequestHook) Handle(ctx *gin.Context) {
 	// Parse admission review from body. If this failes we report back a malformed request.
 	review := new(admission.AdmissionReview)
 	if err := ctx.BindJSON(review); err != nil {
-		ctx.Error(errors.Wrapf(err, "failed to parse admission review"))
+		_ = ctx.Error(errors.Wrapf(err, "failed to parse admission review"))
 		ctx.Status(http.StatusBadRequest)
 		return
 	}
@@ -78,13 +78,13 @@ func (h AdmissionRequestHook) Handle(ctx *gin.Context) {
 	// Call the review handler
 	result, err := h.Call(review.Request)
 	if err != nil {
-		ctx.Error(err)
+		_ = ctx.Error(err)
 	}
 
 	// Convert the response
 	admissionResponse.Response, err = result.ToResponse(review.Request)
 	if err != nil {
-		ctx.Error(err)
+		_ = ctx.Error(err)
 	}
 
 	// Return response as proper JSON
