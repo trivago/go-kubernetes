@@ -5,7 +5,7 @@ package kubernetes
 
 import (
 	jsoniter "github.com/json-iterator/go"
-	"github.com/rs/zerolog/log"
+	"github.com/pkg/errors"
 	admission "k8s.io/api/admission/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -47,7 +47,7 @@ func NewOkResponse(req *admission.AdmissionRequest) *admission.AdmissionResponse
 	return &response
 }
 
-func (result ValidationResult) ToResponse(req *admission.AdmissionRequest) *admission.AdmissionResponse {
+func (result ValidationResult) ToResponse(req *admission.AdmissionRequest) (*admission.AdmissionResponse, error) {
 	response := admission.AdmissionResponse{
 		UID:     req.UID,
 		Allowed: result.Ok,
@@ -61,19 +61,15 @@ func (result ValidationResult) ToResponse(req *admission.AdmissionRequest) *admi
 	}
 
 	if len(result.Patches) > 0 {
-		if patchBytes, err := jsoniter.Marshal(result.Patches); err != nil {
-			log.Error().Err(err).Msg("failed to encode patches")
-		} else {
-			patchType := admission.PatchTypeJSONPatch
-
-			response.Patch = patchBytes
-			response.PatchType = &patchType
-
-			log.Debug().RawJSON("patch", patchBytes).Msg("patch provided")
+		patchBytes, err := jsoniter.Marshal(result.Patches)
+		if err != nil {
+			return &response, errors.Wrapf(err, "failed to encode patches")
 		}
-	} else {
-		log.Debug().Msg("no patch provided")
+
+		patchType := admission.PatchTypeJSONPatch
+		response.Patch = patchBytes
+		response.PatchType = &patchType
 	}
 
-	return &response
+	return &response, nil
 }
