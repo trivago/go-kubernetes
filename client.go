@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,8 +66,7 @@ func NewClientUsingContext(path, context string) (*Client, error) {
 		// In cluster client if path is empty
 		config, err = restclient.InClusterConfig()
 		if err != nil {
-			log.Error().Msg("failed to build in-cluster kubeconfig")
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to build in-cluster kubeconfig")
 		}
 	} else {
 		// Out of cluster client if path is given.
@@ -81,33 +79,28 @@ func NewClientUsingContext(path, context string) (*Client, error) {
 		}
 		config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&rules, &overrides).ClientConfig()
 		if err != nil {
-			log.Error().Msgf("failed to load kubeconfig from %s", path)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to load kubeconfig from %s", path)
 		}
 	}
 
 	k8sClient.client, err = dynamic.NewForConfig(config)
 	if err != nil {
-		log.Error().Msg("failed to create in-cluster kubernetes client")
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create in-cluster kubernetes client")
 	}
 
 	k8sClient.apiClient.corev1, err = corev1client.NewForConfig(config)
 	if err != nil {
-		log.Error().Msg("failed to create in-cluster kubernetes core v1 client")
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create in-cluster kubernetes core v1 client")
 	}
 
 	k8sClient.discoveryClient, err = discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		log.Error().Msg("failed to create in-cluster kubernetes discovery client")
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create in-cluster kubernetes discovery client")
 	}
 
 	groupResources, err := restmapper.GetAPIGroupResources(k8sClient.discoveryClient)
 	if err != nil {
-		log.Error().Msg("failed to create in-cluster kubernetes group resource mapper")
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create in-cluster kubernetes group resource mapper")
 	}
 	k8sClient.groupResourceMapper = restmapper.NewDiscoveryRESTMapper(groupResources)
 
@@ -186,11 +179,6 @@ func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, 
 // a global resource is expected. If selector is left empty, all objects will
 // be returned.
 func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string) ([]NamedObject, error) {
-	start := time.Now()
-	defer func() {
-		log.Debug().Msgf("list operation took %s", time.Since(start).String())
-	}()
-
 	options := metav1.ListOptions{
 		LabelSelector: labelSelector,
 		FieldSelector: fieldSelector,
@@ -227,12 +215,7 @@ func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSe
 
 // Apply creates or updates a given kubernetes object.
 // If a namespace is set, the object will be created in that namespace.
-func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObject, options metav1.ApplyOptions) {
-	start := time.Now()
-	defer func() {
-		log.Debug().Msgf("apply operation took %s", time.Since(start).String())
-	}()
-
+func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObject, options metav1.ApplyOptions) error {
 	var (
 		resourceHandle dynamic.ResourceInterface
 		identifier     string
@@ -251,20 +234,15 @@ func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObjec
 	}
 
 	if _, err := resourceHandle.Apply(context.Background(), object.GetName(), unstructuredObject, options); err != nil {
-		log.Error().Err(err).Interface(object.GetName(), object).Msgf("failed to trigger apply for %s", identifier)
-	} else {
-		log.Debug().Msgf("applied %s", identifier)
+		return errors.Wrapf(err, "failed to trigger apply for %s", identifier)
 	}
+
+	return nil
 }
 
 // DeleteNamespaced removes a specific kubernetes object from a specific namespace.
 // If an empty namespace is given, the object will be treated as a cluster-wide resource.
-func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, namespace string) {
-	start := time.Now()
-	defer func() {
-		log.Debug().Msgf("delete operation took %s", time.Since(start).String())
-	}()
-
+func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, namespace string) error {
 	var (
 		resourceHandle dynamic.ResourceInterface
 		identifier     string
@@ -279,20 +257,15 @@ func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, 
 	}
 
 	if err := resourceHandle.Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
-		log.Error().Err(err).Msgf("failed to trigger delete for %s", identifier)
-	} else {
-		log.Info().Msgf("deleted %s", identifier)
+		return errors.Wrapf(err, "failed to trigger delete for %s", identifier)
 	}
+
+	return nil
 }
 
 // Patch applies a set of patches on a given kubernetes object.
 // The patches are applied as json patches.
-func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObject, patches []PatchOperation, options metav1.PatchOptions) {
-	start := time.Now()
-	defer func() {
-		log.Debug().Msgf("patch operation took %s", time.Since(start).String())
-	}()
-
+func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObject, patches []PatchOperation, options metav1.PatchOptions) error {
 	var (
 		resourceHandle dynamic.ResourceInterface
 		identifier     string
@@ -308,15 +281,14 @@ func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObjec
 
 	patchData, err := json.Marshal(patches)
 	if err != nil {
-		log.Error().Err(err).Interface("patches", patches).Msgf("failed to marshal patch data for %s", identifier)
-		return
+		return errors.Wrapf(err, "failed to marshal patch data for %s", identifier)
 	}
 
 	if _, err := resourceHandle.Patch(context.Background(), object.GetName(), types.JSONPatchType, patchData, metav1.PatchOptions{}); err != nil {
-		log.Error().Err(err).Interface("patches", patches).Msgf("failed to apply patch for %s", identifier)
-	} else {
-		log.Debug().Msgf("applied %s", identifier)
+		return errors.Wrapf(err, "failed to apply patch for %s", identifier)
 	}
+
+	return nil
 }
 
 // GetServiceAccountToken returns a token for a given service account.
