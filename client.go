@@ -126,7 +126,7 @@ func GetContextsFromConfig(path string) ([]string, error) {
 	}
 
 	contextNames := make([]string, 0, len(rawConfig.Contexts))
-	for name, _ := range rawConfig.Contexts {
+	for name := range rawConfig.Contexts {
 		contextNames = append(contextNames, name)
 	}
 
@@ -213,10 +213,11 @@ func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSe
 	for _, rawObject := range list.Items {
 		obj, parseErr := NamedObjectFromUnstructured(rawObject)
 		if parseErr != nil {
-			if err != nil {
-				err = fmt.Errorf("error parsing item(s) from list")
+			if err == nil {
+				err = parseErr
+			} else {
+				err = errors.Wrapf(err, "failed to parse item: %v", parseErr)
 			}
-			errors.Wrap(err, err.Error())
 		}
 		resultList = append(resultList, obj)
 	}

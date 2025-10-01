@@ -205,8 +205,10 @@ func TestNamedObjectRename(t *testing.T) {
 	assert.Equal(t, "test", obj.GetName())
 	assert.Equal(t, "default", obj.GetNamespace())
 
-	obj.SetName("foo")
-	obj.SetNamespace("bar")
+	err = obj.SetName("foo")
+	assert.NoError(t, err)
+	err = obj.SetNamespace("bar")
+	assert.NoError(t, err)
 
 	assert.Equal(t, "foo", obj.GetName())
 	assert.Equal(t, "bar", obj.GetNamespace())
@@ -239,8 +241,10 @@ func TestAnnotations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "escaped", b)
 
-	obj.SetAnnotation("foo/esc", "changed")
-	obj.SetAnnotation("new", "shiny")
+	err = obj.SetAnnotation("foo/esc", "changed")
+	assert.NoError(t, err)
+	err = obj.SetAnnotation("new", "shiny")
+	assert.NoError(t, err)
 
 	b, err = obj.GetAnnotation("foo/esc")
 	assert.NoError(t, err)
@@ -565,27 +569,32 @@ func TestHashChanges(t *testing.T) {
 	hash1, err := obj.Hash()
 	assert.NoError(t, err)
 
-	obj.SetName("foo")
+	err = obj.SetName("foo")
+	assert.NoError(t, err)
 	hash2, err := obj.Hash()
 	assert.NoError(t, err)
 	assert.NotEqual(t, hash1, hash2)
 
-	obj.SetAnnotation("bar", "foo")
+	err = obj.SetAnnotation("bar", "foo")
+	assert.NoError(t, err)
 	hash3, err := obj.Hash()
 	assert.NoError(t, err)
 	assert.NotEqual(t, hash2, hash3)
 
-	obj.SetAnnotation("zaa", "moo")
+	err = obj.SetAnnotation("zaa", "moo")
+	assert.NoError(t, err)
 	hash4, err := obj.Hash()
 	assert.NoError(t, err)
 	assert.NotEqual(t, hash3, hash4)
 
-	obj.SetAnnotation("foo", "bar")
+	err = obj.SetAnnotation("foo", "bar")
+	assert.NoError(t, err)
 	hash5, err := obj.Hash()
 	assert.NoError(t, err)
 	assert.NotEqual(t, hash4, hash5)
 
-	obj.Delete(Path{"metadata", "annotations", "foo"})
+	err = obj.Delete(Path{"metadata", "annotations", "foo"})
+	assert.NoError(t, err)
 
 	hash6, err := obj.Hash()
 	assert.NoError(t, err)
@@ -670,17 +679,17 @@ func TestWalk(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "value", v)
 
-	v, err = obj.Walk(NewPathFromJQFormat("a.obj[].value"), WalkArgs{})
+	_, err = obj.Walk(NewPathFromJQFormat("a.obj[].value"), WalkArgs{})
 	assert.NotNil(t, err)
 
-	v, err = obj.Walk(NewPathFromJQFormat("a.obj[0].value"), WalkArgs{})
+	_, err = obj.Walk(NewPathFromJQFormat("a.obj[0].value"), WalkArgs{})
 	assert.NotNil(t, err)
 
 	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array"), WalkArgs{})
 	assert.NoError(t, err)
 	assert.Equal(t, []interface{}{"a", "b", "c"}, v)
 
-	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array.foo"), WalkArgs{})
+	_, err = obj.Walk(NewPathFromJQFormat("a.obj.array.foo"), WalkArgs{})
 	assert.NotNil(t, err)
 
 	v, err = obj.Walk(NewPathFromJQFormat("a.obj.array[]"), WalkArgs{})
@@ -755,17 +764,17 @@ func TestGeneratePatch(t *testing.T) {
 
 	// Array requested, map found
 	// Should yield an error as array traversal indicator cannot be used
-	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[].value"), "value")
+	_, _, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[].value"), "value")
 	assert.NotNil(t, err)
 
 	// Array requested, map found
 	// Should yield an error as array traversal indicator cannot be used
-	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[]"), "value")
+	_, _, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj[]"), "value")
 	assert.NotNil(t, err)
 
 	// Map requested, array found
 	// Should yield an error as array traversal indicator is missing
-	path, value, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array.key"), "value")
+	_, _, err = obj.GeneratePatch(NewPathFromJQFormat("a.obj.array.key"), "value")
 	assert.NotNil(t, err)
 
 	// Array overwrite
