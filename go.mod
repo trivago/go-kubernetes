@@ -1,4 +1,4 @@
-module github.com/trivago/go-kubernetes/v3
+module github.com/trivago/go-kubernetes/v4
 
 go 1.24.0
 
