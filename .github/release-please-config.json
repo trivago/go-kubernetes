@@ -19,6 +19,14 @@
   ],
   "exclude-paths": [
     ".github",
-    "hack"
-  ]
+    "hack",
+    "cmd"
+  ],
+  "packages": {
+    ".": {
+      "package-name": "go-kubernetes",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "go"
+    }
+  }
 }
