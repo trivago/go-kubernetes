@@ -26,7 +26,8 @@
   ],
   "packages": {
     ".": {
-      "package-name": "",
+      "draft": true,
+      "package-name": "go-kubernetes",
       "changelog-path": "CHANGELOG.md",
       "release-type": "go"
     }
