@@ -1,5 +1,33 @@
 # Changelog
 
+## [4.0.0](https://github.com/trivago/go-kubernetes/compare/v3.2.2...v4.0.0) (2025-10-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove the zerolog dependency for admission controllers
+* Convert client log messages to errors, so the caller can handle them
+* Add error propagation for namedobject functions
+
+### Features
+
+* Add error propagation for namedobject functions ([f8fd264](https://github.com/trivago/go-kubernetes/commit/f8fd26457b13a6fc1a00b2145b260b6638cb8207))
+* remove the zerolog dependency for admission controllers ([4671e66](https://github.com/trivago/go-kubernetes/commit/4671e66b2f04d07b1880043d5cfba8dc318230e6))
+
+
+### Bug Fixes
+
+* Convert client log messages to errors, so the caller can handle them ([48860d4](https://github.com/trivago/go-kubernetes/commit/48860d451c0974d4371eda128519ceb13a411140))
+* remove zerlog dependency ([b497a4f](https://github.com/trivago/go-kubernetes/commit/b497a4f0753e595b77e2a74640ccdb0ad95fac8c))
+* update all dependencies ([#46](https://github.com/trivago/go-kubernetes/issues/46)) ([0d85351](https://github.com/trivago/go-kubernetes/commit/0d853513cd53096af5b651e4a663fcff09e89de8))
+
+
+### Miscellaneous
+
+* actively ignore ctx.Error return values ([f530a60](https://github.com/trivago/go-kubernetes/commit/f530a606b435c4425eaee1ed774fd2fc9b8faac9))
+* add pre-commit config ([9989491](https://github.com/trivago/go-kubernetes/commit/9989491edb8a9347a23c4508847e1e2543293904))
+* moderinize CI ([9eeee19](https://github.com/trivago/go-kubernetes/commit/9eeee193b3145934a7a9c51724f0785537b0dfe2))
+
 ## [3.2.2](https://github.com/trivago/go-kubernetes/compare/v3.2.1...v3.2.2) (2025-02-10)
 
 
