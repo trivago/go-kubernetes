@@ -14,6 +14,11 @@ There's also support for building simple admission webhooks using the
 alternative solutions to writing admission controllers that is more
 lightweight than the official SDK.
 
+## Maintenance and PRs
+
+This repository is in active development but is not our main focus.  
+PRs are wolcome, but will take some time to be reviewed.
+
 ## License
 
 All files in the repository are subject to the [Apache 2.0 License](LICENSE)
