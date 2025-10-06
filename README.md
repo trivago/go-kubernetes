@@ -3,7 +3,7 @@
 This library provides a simplified interface on top of the official kubernetes
 client libraries.
 
-The design focus of this module is usabality, not performance or type-safety.
+The design focus of this module is usability, not performance or type-safety.
 We wanted to create a module that is closer to the use of kubectl based
 scripts.
 
