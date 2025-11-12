@@ -28,8 +28,6 @@ type Client struct {
 	client              dynamic.Interface
 	discoveryClient     *discovery.DiscoveryClient
 	groupResourceMapper meta.RESTMapper
-
-	schemaCache map[string]schema.GroupVersionKind
 }
 
 // typedClients holds kubernetes clients for different API groups.
@@ -58,9 +56,7 @@ func NewClientUsingContext(path, context string) (*Client, error) {
 		config *restclient.Config
 	)
 
-	k8sClient := Client{
-		schemaCache: make(map[string]schema.GroupVersionKind),
-	}
+	k8sClient := Client{}
 
 	if path == "" {
 		// In cluster client if path is empty
@@ -127,9 +123,9 @@ func GetContextsFromConfig(path string) ([]string, error) {
 }
 
 // GetNamedObject returns a specific kubernetes object
-func (k8s *Client) GetNamedObject(resource schema.GroupVersionResource, name string) (NamedObject, error) {
+func (k8s *Client) GetNamedObject(resource schema.GroupVersionResource, name string, ctx context.Context) (NamedObject, error) {
 	resourceHandle := k8s.client.Resource(resource)
-	rawObject, err := resourceHandle.Get(context.Background(), name, metav1.GetOptions{})
+	rawObject, err := resourceHandle.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -138,9 +134,9 @@ func (k8s *Client) GetNamedObject(resource schema.GroupVersionResource, name str
 }
 
 // GetNamespacedObject returns a specific kubernetes object from a specific namespace
-func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, name, namespace string) (NamedObject, error) {
+func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, name, namespace string, ctx context.Context) (NamedObject, error) {
 	resourceHandle := k8s.client.Resource(resource).Namespace(namespace)
-	rawObject, err := resourceHandle.Get(context.Background(), name, metav1.GetOptions{})
+	rawObject, err := resourceHandle.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -149,36 +145,36 @@ func (k8s *Client) GetNamespacedObject(resource schema.GroupVersionResource, nam
 }
 
 // ListAllObjects returns a list of all objects for a given type that is assumed to be global.
-func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, labelSelector, fieldSelector string) ([]NamedObject, error) {
-	return k8s.list(resource, "", labelSelector, fieldSelector)
+func (k8s *Client) ListAllObjects(resource schema.GroupVersionResource, labelSelector, fieldSelector string, ctx context.Context) ([]NamedObject, error) {
+	return k8s.list(resource, "", labelSelector, fieldSelector, ctx)
 }
 
 // ListAllObjectsInNamespace returns a list of all objects for a given type in a given namespace.
-func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string) ([]NamedObject, error) {
-	return k8s.list(resource, namespace, labelSelector, fieldSelector)
+func (k8s *Client) ListAllObjectsInNamespace(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string, ctx context.Context) ([]NamedObject, error) {
+	return k8s.list(resource, namespace, labelSelector, fieldSelector, ctx)
 }
 
 // ListAllObjectsInNamespaceMatching returns a list of all objects matching a given selector struct.
 // This struct is used in varios API objects like namespaceSelector or objectSelector.
 // Use ParseLabelSelector to create this struct from an existing object.
-func (k8s *Client) ListAllObjectsInNamespaceMatching(resource schema.GroupVersionResource, namespace string, labelMatchExpression metav1.LabelSelector, fieldSelector string) ([]NamedObject, error) {
+func (k8s *Client) ListAllObjectsInNamespaceMatching(resource schema.GroupVersionResource, namespace string, labelMatchExpression metav1.LabelSelector, fieldSelector string, ctx context.Context) ([]NamedObject, error) {
 	labelSelector := metav1.FormatLabelSelector(&labelMatchExpression)
-	return k8s.list(resource, namespace, labelSelector, fieldSelector)
+	return k8s.list(resource, namespace, labelSelector, fieldSelector, ctx)
 }
 
 // ListAllObjectsMatching returns a list of all objects matching a given selector struct.
 // This struct is used in varios API objects like namespaceSelector or objectSelector.
 // Use ParseLabelSelector to create this struct from an existing object.
-func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, labelMatchExpression metav1.LabelSelector, fieldSelector string) ([]NamedObject, error) {
+func (k8s *Client) ListAllObjectsMatching(resource schema.GroupVersionResource, labelMatchExpression metav1.LabelSelector, fieldSelector string, ctx context.Context) ([]NamedObject, error) {
 	labelSelector := metav1.FormatLabelSelector(&labelMatchExpression)
-	return k8s.list(resource, "", labelSelector, fieldSelector)
+	return k8s.list(resource, "", labelSelector, fieldSelector, ctx)
 }
 
 // list returns a list of objects for a given type.
 // Namespace, labelSelector and fieldSelector are optional arguments. If namespace is left empty,
 // a global resource is expected. If selector is left empty, all objects will
 // be returned.
-func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string) ([]NamedObject, error) {
+func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSelector, fieldSelector string, ctx context.Context) ([]NamedObject, error) {
 	options := metav1.ListOptions{
 		LabelSelector: labelSelector,
 		FieldSelector: fieldSelector,
@@ -192,7 +188,7 @@ func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSe
 		resourceHandle = k8s.client.Resource(resource)
 	}
 
-	list, err := resourceHandle.List(context.Background(), options)
+	list, err := resourceHandle.List(ctx, options)
 	if err != nil {
 		return []NamedObject{}, err
 	}
@@ -215,7 +211,7 @@ func (k8s *Client) list(resource schema.GroupVersionResource, namespace, labelSe
 
 // Apply creates or updates a given kubernetes object.
 // If a namespace is set, the object will be created in that namespace.
-func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObject, options metav1.ApplyOptions) error {
+func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObject, options metav1.ApplyOptions, ctx context.Context) error {
 	var (
 		resourceHandle dynamic.ResourceInterface
 		identifier     string
@@ -233,7 +229,7 @@ func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObjec
 		Object: object,
 	}
 
-	if _, err := resourceHandle.Apply(context.Background(), object.GetName(), unstructuredObject, options); err != nil {
+	if _, err := resourceHandle.Apply(ctx, object.GetName(), unstructuredObject, options); err != nil {
 		return errors.Wrapf(err, "failed to trigger apply for %s", identifier)
 	}
 
@@ -242,7 +238,7 @@ func (k8s *Client) Apply(resource schema.GroupVersionResource, object NamedObjec
 
 // DeleteNamespaced removes a specific kubernetes object from a specific namespace.
 // If an empty namespace is given, the object will be treated as a cluster-wide resource.
-func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, namespace string) error {
+func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, namespace string, ctx context.Context) error {
 	var (
 		resourceHandle dynamic.ResourceInterface
 		identifier     string
@@ -256,7 +252,7 @@ func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, 
 		identifier = name
 	}
 
-	if err := resourceHandle.Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+	if err := resourceHandle.Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
 		return errors.Wrapf(err, "failed to trigger delete for %s", identifier)
 	}
 
@@ -265,7 +261,7 @@ func (k8s *Client) DeleteNamespaced(resource schema.GroupVersionResource, name, 
 
 // Patch applies a set of patches on a given kubernetes object.
 // The patches are applied as json patches.
-func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObject, patches []PatchOperation, options metav1.PatchOptions) error {
+func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObject, patches []PatchOperation, options metav1.PatchOptions, ctx context.Context) error {
 	var (
 		resourceHandle dynamic.ResourceInterface
 		identifier     string
@@ -284,7 +280,7 @@ func (k8s *Client) Patch(resource schema.GroupVersionResource, object NamedObjec
 		return errors.Wrapf(err, "failed to marshal patch data for %s", identifier)
 	}
 
-	if _, err := resourceHandle.Patch(context.Background(), object.GetName(), types.JSONPatchType, patchData, metav1.PatchOptions{}); err != nil {
+	if _, err := resourceHandle.Patch(ctx, object.GetName(), types.JSONPatchType, patchData, metav1.PatchOptions{}); err != nil {
 		return errors.Wrapf(err, "failed to apply patch for %s", identifier)
 	}
 
@@ -307,7 +303,7 @@ func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, 
 		}
 
 		if strings.ToLower(boundPodRef.Kind) != "pod" {
-			return "", fmt.Errorf("bound object reference must be a pod or nil")
+			return "", ErrInvalidBoundObjectRef{}
 		}
 	}
 
@@ -324,7 +320,7 @@ func (k8s *Client) GetServiceAccountToken(serviceAccountName, namespace string, 
 		return "", err
 	}
 	if len(response.Status.Token) == 0 {
-		return "", fmt.Errorf("no token in server response")
+		return "", ErrNoToken{}
 	}
 
 	return response.Status.Token, nil
