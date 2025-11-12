@@ -4,7 +4,6 @@
 package kubernetes
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,11 +37,11 @@ func (h AdmissionRequestHook) Call(req *admission.AdmissionRequest) (ValidationR
 	case admission.Delete:
 		callback = h.Delete
 	default:
-		return ValidationOk, fmt.Errorf("unknown admission operation: %s", req.Operation)
+		return ValidationOk, ErrUnknownOperation(string(req.Operation))
 	}
 
 	if callback == nil {
-		return ValidationOk, fmt.Errorf("operation %s has no callback set", req.Operation)
+		return ValidationOk, ErrNoCallback(string(req.Operation))
 	}
 
 	// TODO: create parse request here

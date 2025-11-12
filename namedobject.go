@@ -38,7 +38,7 @@ func NewNamedObject(name string) NamedObject {
 func NamedObjectFromRaw(data *runtime.RawExtension) (NamedObject, error) {
 	if data.Raw == nil {
 		if data.Object == nil {
-			return NamedObject{}, fmt.Errorf("no data found in raw object")
+			return NamedObject{}, ErrNoData{}
 		}
 		var err error
 		if data.Raw, err = jsoniter.Marshal(data.Object); err != nil {
@@ -67,7 +67,7 @@ func NamedObjectFromUnstructured(unstructuredObj unstructured.Unstructured) (Nam
 	// "generateName" is used by pods before a, e.g., ReplicaSet controler
 	// processed the pod.
 	if !obj.Has(PathMetadataName) && !obj.Has(PathMetadataGenerateName) {
-		return obj, fmt.Errorf("object does not have a name set")
+		return obj, ErrMissingName{}
 	}
 
 	return obj, nil
@@ -537,7 +537,7 @@ func doHash(hasher hash.Hash64, k string, iv interface{}) error {
 		return err
 
 	default:
-		return fmt.Errorf("cannot create hash for field %s of type %T", k, v)
+		return ErrUnsupportedHashType(fmt.Sprintf("cannot create hash for field %s of type %T", k, v))
 	}
 }
 
@@ -608,7 +608,7 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 		}
 
 	case ArrayNotationIndex:
-		return validPath, value, ErrIndexNotation("")
+		return validPath, value, ErrIndexNotation{}
 	}
 
 	extendedValue := parentNode
@@ -660,7 +660,7 @@ func (obj NamedObject) GeneratePatch(path Path, value interface{}) (Path, interf
 			}
 
 		case ArrayNotationIndex:
-			return validPath, value, ErrIndexNotation("")
+			return validPath, value, ErrIndexNotation{}
 		}
 	}
 

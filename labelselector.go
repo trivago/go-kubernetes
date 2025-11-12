@@ -39,7 +39,7 @@ func ParseLabelSelector(obj map[string]interface{}) (metav1.LabelSelector, error
 		for k, v := range obj {
 			stringValue, ok := v.(string)
 			if !ok {
-				return selector, fmt.Errorf("failed to parse selector[%s] as string : %v", k, v)
+				return selector, ErrParseError(fmt.Sprintf("failed to parse selector[%s] as string : %v", k, v))
 			}
 			selector.MatchLabels[k] = stringValue
 		}
@@ -52,14 +52,14 @@ func ParseLabelSelector(obj map[string]interface{}) (metav1.LabelSelector, error
 			// Support any-type key/value maps (named objects)
 			untyped, ok := matchLabels.(map[string]interface{})
 			if !ok {
-				return selector, fmt.Errorf("failed to parse matchLabels as map[string]string or map[string]interface{} : %v", matchLabels)
+				return selector, ErrParseError(fmt.Sprintf("failed to parse matchLabels as map[string]string or map[string]interface{} : %v", matchLabels))
 			}
 
 			selector.MatchLabels = make(map[string]string)
 			for k, v := range untyped {
 				stringValue, ok := v.(string)
 				if !ok {
-					return selector, fmt.Errorf("failed to parse matchLabels[%s] as string : %v", k, v)
+					return selector, ErrParseError(fmt.Sprintf("failed to parse matchLabels[%s] as string : %v", k, v))
 				}
 				selector.MatchLabels[k] = stringValue
 			}
@@ -72,14 +72,14 @@ func ParseLabelSelector(obj map[string]interface{}) (metav1.LabelSelector, error
 			// Support any-type key/value maps (named objects)
 			untypedList, ok := matchExpressions.([]interface{})
 			if !ok {
-				return selector, fmt.Errorf("failed to parse matchExpressions as []metav1.LabelSelectorRequirement or []interface{} : %v", matchExpressions)
+				return selector, ErrParseError(fmt.Sprintf("failed to parse matchExpressions as []metav1.LabelSelectorRequirement or []interface{} : %v", matchExpressions))
 			}
 
 			selector.MatchExpressions = make([]metav1.LabelSelectorRequirement, 0, len(untypedList))
 			for i, v := range untypedList {
 				untypedMap, ok := v.(map[string]interface{})
 				if !ok {
-					return selector, fmt.Errorf("failed to parse matchExpressions[%d] as map[string]interface{} : %v", i, v)
+					return selector, ErrParseError(fmt.Sprintf("failed to parse matchExpressions[%d] as map[string]interface{} : %v", i, v))
 				}
 
 				parsed, err := parseLabelSelectorRequirement(untypedMap)
@@ -104,12 +104,12 @@ func parseLabelSelectorRequirement(obj map[string]interface{}) (metav1.LabelSele
 
 	req.Key, ok = obj["key"].(string)
 	if !ok {
-		return req, fmt.Errorf("failed to parse key as string : %v", obj["key"])
+		return req, ErrParseError(fmt.Sprintf("failed to parse key as string : %v", obj["key"]))
 	}
 
 	operatorStr, ok := obj["operator"].(string)
 	if !ok {
-		return req, fmt.Errorf("failed to parse operator as metav1.LabelSelectorOperator (string) : %v", obj["operator"])
+		return req, ErrParseError(fmt.Sprintf("failed to parse operator as metav1.LabelSelectorOperator (string) : %v", obj["operator"]))
 	}
 	req.Operator = metav1.LabelSelectorOperator(operatorStr)
 
@@ -117,14 +117,14 @@ func parseLabelSelectorRequirement(obj map[string]interface{}) (metav1.LabelSele
 	if !ok {
 		untypedList, ok := obj["values"].([]interface{})
 		if !ok {
-			return req, fmt.Errorf("failed to parse values as []string or []interface{} : %v", obj["values"])
+			return req, ErrParseError(fmt.Sprintf("failed to parse values as []string or []interface{} : %v", obj["values"]))
 		}
 
 		req.Values = make([]string, 0, len(untypedList))
 		for i, v := range untypedList {
 			stringValue, ok := v.(string)
 			if !ok {
-				return req, fmt.Errorf("failed to parse values[%d] as string : %v", i, v)
+				return req, ErrParseError(fmt.Sprintf("failed to parse values[%d] as string : %v", i, v))
 			}
 
 			req.Values = append(req.Values, stringValue)

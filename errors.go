@@ -90,8 +90,100 @@ func (e ErrIncorrectType) Error() string {
 //
 // Array modification operations must use "-" for appending; explicit indices are not
 // supported during path extension.
-type ErrIndexNotation string
+type ErrIndexNotation struct{}
 
 func (e ErrIndexNotation) Error() string {
 	return "Cannot append to array using index notation"
+}
+
+// ErrNoData is returned when a RawExtension object does not contain any data.
+// This occurs when both the Raw and Object fields are nil during conversion from
+// a runtime.RawExtension to a NamedObject.
+type ErrNoData struct{}
+
+func (e ErrNoData) Error() string {
+	return "No data found in raw object"
+}
+
+// ErrMissingName is returned when a Kubernetes object does not have a name or
+// generateName field set in its metadata. This occurs during object validation
+// in NamedObjectFromUnstructured when neither metadata.name nor metadata.generateName
+// is present. All Kubernetes objects must have at least one of these fields defined.
+type ErrMissingName struct{}
+
+func (e ErrMissingName) Error() string {
+	return "Object does not have a name set"
+}
+
+// ErrUnsupportedHashType is returned when attempting to hash a field with a type
+// that is not supported by the hashing algorithm. This occurs when:
+//   - A field type cannot be converted to a hashable representation
+//   - An unknown or complex type is encountered during object hashing
+//
+// The error string contains the field name and its type information.
+type ErrUnsupportedHashType string
+
+func (e ErrUnsupportedHashType) Error() string {
+	return string(e)
+}
+
+// ErrUnknownOperation is returned when an admission webhook receives a request
+// with an operation type that is not recognized. Valid operations are Create,
+// Update, and Delete. This error occurs in AdmissionRequestHook.Call when the
+// admission request contains an unsupported operation.
+//
+// The error string contains the unknown operation name.
+type ErrUnknownOperation string
+
+func (e ErrUnknownOperation) Error() string {
+	return fmt.Sprintf("Unknown admission operation: %s", string(e))
+}
+
+// ErrNoCallback is returned when an admission webhook receives a request for an
+// operation that does not have a validation callback registered. This occurs in
+// AdmissionRequestHook.Call when the operation (Create, Update, or Delete) handler
+// is nil. The request is still marked as validated to avoid blocking operations.
+//
+// The error string contains the operation name that lacks a callback.
+type ErrNoCallback string
+
+func (e ErrNoCallback) Error() string {
+	return fmt.Sprintf("Operation %s has no callback set", string(e))
+}
+
+// ErrInvalidBoundObjectRef is returned when attempting to create a service account
+// token with an invalid bound object reference. This occurs when:
+//   - A bound object reference is provided but is not a Pod
+//   - The Kind field is set to something other than "pod" (case-insensitive)
+//
+// Service account tokens can only be bound to Pod objects or have no binding.
+type ErrInvalidBoundObjectRef struct{}
+
+func (e ErrInvalidBoundObjectRef) Error() string {
+	return "Bound object reference must be a pod or nil"
+}
+
+// ErrNoToken is returned when a service account token request succeeds but the
+// response does not contain a token. This occurs in GetServiceAccountToken when
+// the Kubernetes API returns a successful response with an empty token field,
+// indicating an unexpected API behavior.
+type ErrNoToken struct{}
+
+func (e ErrNoToken) Error() string {
+	return "No token in server response"
+}
+
+// ErrParseError is returned when parsing label selector components fails due to
+// type mismatches. This occurs in ParseLabelSelector when:
+//   - A selector value is not a string
+//   - matchLabels is not a map[string]string or map[string]interface{}
+//   - matchExpressions is not the expected slice type
+//   - A matchExpressions element is not a map[string]interface{}
+//   - Required fields (key, operator, values) are not of the expected type
+//
+// The error string contains details about what failed to parse and the actual value.
+type ErrParseError string
+
+func (e ErrParseError) Error() string {
+	return string(e)
 }
