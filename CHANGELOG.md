@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.1.0](https://github.com/trivago/go-kubernetes/compare/v4.0.0...v4.1.0) (2025-11-12)
+
+
+### Features
+
+* Accept context to be passed to all client functions ([7683eff](https://github.com/trivago/go-kubernetes/commit/7683effb0b3852c8dced99dccf62774c8aa35f48))
+
+
+### Bug Fixes
+
+* convert unnamed errors to types ([eb48b18](https://github.com/trivago/go-kubernetes/commit/eb48b18a89b755324e68afaa725b5165e009537f))
+* update dependencies ([d3cede4](https://github.com/trivago/go-kubernetes/commit/d3cede4f81ab301744c6a870c338e2daf6fd5b0c))
+
+
+### Miscellaneous
+
+* add documentation for errors ([edcc8d1](https://github.com/trivago/go-kubernetes/commit/edcc8d1fcaca24d2824addee3a45965ccb117e54))
+* fix typo in the readme ([160a7eb](https://github.com/trivago/go-kubernetes/commit/160a7ebc5e2654bd004da525e18a82c45464045e))
+* readme typo ([#49](https://github.com/trivago/go-kubernetes/issues/49)) ([123ce90](https://github.com/trivago/go-kubernetes/commit/123ce906599e87fe52a60dc2684ae57901679148))
+
 ## [4.0.0](https://github.com/trivago/go-kubernetes/compare/v3.2.2...v4.0.0) (2025-10-01)
 
 
