@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0](https://github.com/trivago/go-kubernetes/compare/v4.1.1...v4.2.0) (2026-01-29)
+
+
+### Features
+
+* bump the minor-and-patch group across 1 directory with 2 updates and update to go 1.25 ([#55](https://github.com/trivago/go-kubernetes/issues/55)) ([65a3759](https://github.com/trivago/go-kubernetes/commit/65a3759317231fe43d403960b63ffc144fc74ef0))
+
 ## [4.1.1](https://github.com/trivago/go-kubernetes/compare/v4.1.0...v4.1.1) (2026-01-29)
 
 
