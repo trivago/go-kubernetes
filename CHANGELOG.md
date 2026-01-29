@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.1.1](https://github.com/trivago/go-kubernetes/compare/v4.1.0...v4.1.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* **security:** bump github.com/quic-go/quic-go from 0.56.0 to 0.57.0 ([#54](https://github.com/trivago/go-kubernetes/issues/54)) ([c9bfe93](https://github.com/trivago/go-kubernetes/commit/c9bfe93700c682eb05ce9540f88360c2d04afe53))
+* **security:** bump golang.org/x/crypto from 0.44.0 to 0.45.0 ([#52](https://github.com/trivago/go-kubernetes/issues/52)) ([41497a3](https://github.com/trivago/go-kubernetes/commit/41497a33a978bca40568df2883389ce51b6c1837))
+* **security:** bump golang.org/x/crypto from 0.45.0 to 0.47.0 ([#56](https://github.com/trivago/go-kubernetes/issues/56)) ([e3d04ea](https://github.com/trivago/go-kubernetes/commit/e3d04ea84788a8c178d8a44e9aa5e1a54709a5c0))
+
+
+### Miscellaneous
+
+* run go mod tidy ([b8a2bee](https://github.com/trivago/go-kubernetes/commit/b8a2beebd3cd866e8b63afa1137dd0967830b257))
+* run go mod tidy ([58ef5d0](https://github.com/trivago/go-kubernetes/commit/58ef5d083935d0ac4c8b257ec6f24a5ad7cba3e3))
+
 ## [4.1.0](https://github.com/trivago/go-kubernetes/compare/v4.0.0...v4.1.0) (2025-11-12)
 
 
